@@ -1,27 +1,12 @@
-const CONFIG = {
-  loopIntervalMs: 5_000,
-  statusIntervalMs: 30_000,
-  homeReserveGb: 16,
-  deploy: {
-    workerScripts: [
-      "/scripts/worker-hack.js",
-      "/scripts/worker-grow.js",
-      "/scripts/worker-weaken.js",
-    ],
-  },
-  rooting: {
-    crackers: [
-      { file: "BruteSSH.exe", fn: "brutessh" },
-      { file: "FTPCrack.exe", fn: "ftpcrack" },
-      { file: "relaySMTP.exe", fn: "relaysmtp" },
-      { file: "HTTPWorm.exe", fn: "httpworm" },
-      { file: "SQLInject.exe", fn: "sqlinject" },
-    ],
-  },
-  starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
-};
+import { CONFIG } from "./config/defaults.js";
+import { rootMany } from "./lib/net/access.js";
+import { deployWorkersFleet } from "./lib/net/deploy.js";
+import { scanAllServers } from "./lib/net/scan.js";
+import { createLogger } from "./lib/runtime/logger.js";
+import { writeState } from "./lib/runtime/state.js";
+import { shouldEmit, sleepSafe } from "./lib/runtime/timing.js";
 
-function bbMainGetStarterTarget(ns) {
+function getStarterTarget(ns) {
   for (const target of CONFIG.starterTargets) {
     if (!ns.serverExists(target)) continue;
     const level = ns.getServerRequiredHackingLevel(target);
@@ -46,7 +31,7 @@ function bbMainGetRunnerHosts(ns, discovered) {
   });
 }
 
-function bbMainScanAllServers(ns) {
+function scanAllServers(ns) {
   const visited = new Set(["home"]);
   const queue = ["home"];
   const edges = { home: ns.scan("home") };
@@ -70,7 +55,7 @@ function bbMainScanAllServers(ns) {
   };
 }
 
-function bbMainTryRoot(ns, host) {
+function tryRoot(ns, host) {
   if (host === "home" || ns.hasRootAccess(host)) return true;
 
   let opened = 0;
@@ -91,41 +76,41 @@ function bbMainTryRoot(ns, host) {
   return ns.hasRootAccess(host);
 }
 
-function bbMainRootMany(ns, hosts) {
+function rootMany(ns, hosts) {
   const rootedNow = [];
   for (const host of hosts) {
     const hadRoot = ns.hasRootAccess(host);
-    const hasRoot = bbMainTryRoot(ns, host);
+    const hasRoot = tryRoot(ns, host);
     if (!hadRoot && hasRoot) rootedNow.push(host);
   }
 
   return rootedNow;
 }
 
-async function bbMainDeployWorkersToHost(ns, host, scripts) {
+async function deployWorkersToHost(ns, host, scripts) {
   if (host === "home") return true;
   return await ns.scp(scripts, host, "home");
 }
 
-async function bbMainDeployWorkersFleet(ns, hosts, scripts) {
+async function deployWorkersFleet(ns, hosts, scripts) {
   let copied = 0;
   for (const host of hosts) {
     if (!ns.hasRootAccess(host)) continue;
-    if (await bbMainDeployWorkersToHost(ns, host, scripts)) copied += 1;
+    if (await deployWorkersToHost(ns, host, scripts)) copied += 1;
   }
 
   return copied;
 }
 
-function bbMainWriteState(ns, value) {
+function writeState(ns, value) {
   ns.write("/data/runtime-state.txt", JSON.stringify(value, null, 2), "w");
 }
 
-function bbMainShouldEmit(now, last, everyMs) {
+function shouldEmit(now, last, everyMs) {
   return now - last >= everyMs;
 }
 
-function bbMainInfo(ns, scope, message) {
+function info(ns, scope, message) {
   ns.print(`[${scope}] ${message}`);
 }
 
@@ -139,11 +124,11 @@ export async function main(ns) {
   while (true) {
     const now = Date.now();
 
-    const net = bbMainScanAllServers(ns);
-    const rootedNow = bbMainRootMany(ns, net.hosts);
-    const runners = bbMainGetRunnerHosts(ns, net.hosts);
-    const copiedTo = await bbMainDeployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
-    const starterTarget = bbMainGetStarterTarget(ns);
+    const net = scanAllServers(ns);
+    const rootedNow = rootMany(ns, net.hosts);
+    const runners = getRunnerHosts(ns, net.hosts);
+    const copiedTo = await deployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
+    const starterTarget = getStarterTarget(ns);
 
     bbMainWriteState(ns, {
       discoveredHosts: net.hosts.length,
@@ -154,7 +139,7 @@ export async function main(ns) {
 
     if (bbMainShouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
       lastStatusAt = now;
-      bbMainInfo(
+      info(
         ns,
         "main",
         `hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
