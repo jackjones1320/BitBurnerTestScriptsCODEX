@@ -34,5 +34,14 @@ export const CONFIG = {
     landingSpacingMs: 120,
     dispatchCadenceMs: 2_000,
   },
+  phase4: {
+    purchasedServers: {
+      enabled: true,
+      prefix: "bb-fleet",
+      minRamGb: 16,
+      homeRamFraction: 0.5,
+      moneyReserve: 20_000_000,
+    },
+  },
   starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
 };
