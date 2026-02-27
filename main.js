@@ -3,6 +3,7 @@ import { createBatchPlan } from "./lib/hack/batchPlan.js";
 import { buildPrepJobs, getPrepState } from "./lib/hack/prep.js";
 import { rankTargets } from "./lib/hack/score.js";
 import { executeJobSet } from "./lib/hack/scheduler.js";
+import { managePurchasedServers } from "./lib/hw/servers.js";
 import { rootMany } from "./lib/net/access.js";
 import { deployWorkersFleet } from "./lib/net/deploy.js";
 import { scanAllServers } from "./lib/net/scan.js";
@@ -44,12 +45,13 @@ export async function main(ns) {
     const rootedNow = rootMany(ns, net.hosts, CONFIG.rooting.crackers);
     const runnerHosts = getRunnerHosts(ns, net.hosts);
     const copiedTo = await deployWorkersFleet(ns, runnerHosts, CONFIG.deploy.workerScripts);
+    const fleetAction = managePurchasedServers(ns, CONFIG.phase4.purchasedServers);
 
     const rankedTargets = rankTargets(ns, net.hosts, CONFIG.phase2.targetPoolSize);
     const target = pickTarget(rankedTargets);
 
     let mode = "idle";
-    let launched = { launchedScripts: 0, launchedThreads: 0 };
+    let launched = { launchedScripts: 0, launchedThreads: 0, requestedThreads: 0, droppedThreads: 0, utilization: 1 };
     let prep = null;
     let plan = null;
 
@@ -89,6 +91,10 @@ export async function main(ns) {
       prepped: prepState?.isPrepped ?? false,
       launchedScripts: launched.launchedScripts,
       launchedThreads: launched.launchedThreads,
+      requestedThreads: launched.requestedThreads,
+      droppedThreads: launched.droppedThreads,
+      threadUtilization: Number((launched.utilization * 100).toFixed(1)),
+      fleetAction,
       nextDispatchAt,
       lastBatchEndsAt: plan?.endsAt ?? null,
     });
@@ -100,8 +106,9 @@ export async function main(ns) {
         : "money=0/0 sec=0/0";
       logger.info(
         `hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
-          `newRoot=${rootedNow.length} copied=${copiedTo} mode=${mode} target=${target ?? "none"} ` +
-          `${status} launchedScripts=${launched.launchedScripts} launchedThreads=${launched.launchedThreads}`,
+          `newRoot=${rootedNow.length} copied=${copiedTo} mode=${mode} target=${target ?? "none"} fleet=${fleetAction.action} ` +
+          `${status} launchedScripts=${launched.launchedScripts} launchedThreads=${launched.launchedThreads} ` +
+          `droppedThreads=${launched.droppedThreads} utilization=${(launched.utilization * 100).toFixed(1)}%`,
       );
     }
 

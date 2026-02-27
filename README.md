@@ -1,8 +1,8 @@
 # Bitburner Autonomous Runner
 
-Phase 3 prep + deterministic batch foundations are now implemented.
+Phase 4 fleet scaling has been started with purchased server management and a smarter allocator.
 
-## Current capabilities (Phase 3 foundation)
+## Current capabilities
 
 - Network BFS discovery from `home`.
 - Root automation using whichever port crackers are currently present.
@@ -12,8 +12,8 @@ Phase 3 prep + deterministic batch foundations are now implemented.
 - Automatic target scoring/selection with a rotating top target pool.
 - Target prep cycle that converges security and money before entering batch mode.
 - Deterministic HGWW batch plan creation with collision-safe landing offsets.
-- Basic multi-host batch dispatcher that splits threads across available runner capacity.
-- Active remote job placement: each runner host is assigned the best available target and an operation (`weaken`, `grow`, or `hack`) based on live server state.
+- Smarter multi-host dispatcher with job-priority sorting, best-fit thread placement, and dropped-thread telemetry.
+- Purchased server lifecycle automation (buy and replace weakest when affordable) with conservative money reserve.
 - Persistent runtime snapshot written to `/data/runtime-state.txt`.
 
 ## Getting started
@@ -43,7 +43,7 @@ run main.js
 Expected tail output (every ~30s by default):
 
 ```text
-[main] hosts=... rooted=... newRoot=... copied=... targets=... launchedHosts=... launchedThreads=...
+[main] hosts=... rooted=... newRoot=... copied=... mode=... target=... fleet=... launchedScripts=... launchedThreads=... droppedThreads=... utilization=...%
 ```
 
 ## Config
@@ -56,12 +56,15 @@ Tune values in `config/defaults.js`:
 - `phase2.targetPoolSize`
 - `phase2.minSecurityBuffer`
 - `phase2.growMoneyThreshold`
+- `phase4.purchasedServers.enabled`
+- `phase4.purchasedServers.minRamGb`
+- `phase4.purchasedServers.homeRamFraction`
+- `phase4.purchasedServers.moneyReserve`
 - `starterTargets`
 
 ## Next phase
 
-Phase 4 will add:
+Phase 4 continuation will add:
 
-- Purchased server automation and replacement policy
-- Smarter allocator heuristics with per-target queue balancing
-- Expanded runtime telemetry for batch throughput
+- Per-target queue balancing and anti-overlap locks across multiple concurrent targets
+- Throughput-aware scheduling cadence tuning
