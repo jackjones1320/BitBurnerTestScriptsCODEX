@@ -45,7 +45,7 @@ export async function main(ns) {
     const net = scanAllServers(ns);
     const rootedNow = rootMany(ns, net.hosts, CONFIG.rooting.crackers);
     const runners = getRunnerHosts(ns, net.hosts);
-    const copiedTo = deployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
+    const copiedTo = await deployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
     const starterTarget = getStarterTarget(ns);
 
     writeState(ns, {
