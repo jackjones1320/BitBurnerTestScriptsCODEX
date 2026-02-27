@@ -1,27 +1,10 @@
-const CONFIG = {
-  loopIntervalMs: 5_000,
-  statusIntervalMs: 30_000,
-  homeReserveGb: 16,
-  deploy: {
-    workerScripts: [
-      "/scripts/worker-hack.js",
-      "/scripts/worker-grow.js",
-      "/scripts/worker-weaken.js",
-    ],
-  },
-  rooting: {
-    crackers: [
-      { file: "BruteSSH.exe", fn: "brutessh" },
-      { file: "FTPCrack.exe", fn: "ftpcrack" },
-      { file: "relaySMTP.exe", fn: "relaysmtp" },
-      { file: "HTTPWorm.exe", fn: "httpworm" },
-      { file: "SQLInject.exe", fn: "sqlinject" },
-    ],
-  },
-  starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
-};
-
-const STATE_FILE = "/data/runtime-state.txt";
+import { CONFIG } from "./config/defaults.js";
+import { rootMany } from "./lib/net/access.js";
+import { deployWorkersFleet } from "./lib/net/deploy.js";
+import { scanAllServers } from "./lib/net/scan.js";
+import { createLogger } from "./lib/runtime/logger.js";
+import { writeState } from "./lib/runtime/state.js";
+import { shouldEmit, sleepSafe } from "./lib/runtime/timing.js";
 
 function getStarterTarget(ns) {
   for (const target of CONFIG.starterTargets) {
@@ -33,7 +16,7 @@ function getStarterTarget(ns) {
   return "n00dles";
 }
 
-function getRunnerHosts(ns, discovered) {
+function bbMainGetRunnerHosts(ns, discovered) {
   return discovered.filter((host) => {
     if (!ns.hasRootAccess(host)) return false;
     if (ns.getServerMaxRam(host) <= 0) return false;
@@ -65,7 +48,10 @@ function scanAllServers(ns) {
     }
   }
 
-  return { hosts: [...visited], edges };
+  return {
+    hosts: [...visited],
+    edges,
+  };
 }
 
 function tryRoot(ns, host) {
@@ -76,13 +62,14 @@ function tryRoot(ns, host) {
     if (!ns.fileExists(cracker.file, "home")) continue;
 
     const fn = ns[cracker.fn];
-    if (typeof fn !== "function") continue;
-
-    fn(host);
-    opened += 1;
+    if (typeof fn === "function") {
+      fn(host);
+      opened += 1;
+    }
   }
 
-  if (opened < ns.getServerNumPortsRequired(host)) return false;
+  const required = ns.getServerNumPortsRequired(host);
+  if (opened < required) return false;
 
   ns.nuke(host);
   return ns.hasRootAccess(host);
@@ -99,42 +86,31 @@ function rootMany(ns, hosts) {
   return rootedNow;
 }
 
+async function deployWorkersToHost(ns, host, scripts) {
+  if (host === "home") return true;
+  return await ns.scp(scripts, host, "home");
+}
+
 async function deployWorkersFleet(ns, hosts, scripts) {
   let copied = 0;
   for (const host of hosts) {
     if (!ns.hasRootAccess(host)) continue;
-
-    if (host !== "home") {
-      const copiedHost = await ns.scp(scripts, host, "home");
-      if (!copiedHost) continue;
-    }
-
-    copied += 1;
+    if (await deployWorkersToHost(ns, host, scripts)) copied += 1;
   }
 
   return copied;
 }
 
-function readState(ns) {
-  if (!ns.fileExists(STATE_FILE, "home")) return {};
-
-  try {
-    const raw = ns.read(STATE_FILE);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+function writeState(ns, value) {
+  ns.write("/data/runtime-state.txt", JSON.stringify(value, null, 2), "w");
 }
 
-function writeState(ns, partial) {
-  const current = readState(ns);
-  const merged = { ...current, ...partial, updatedAt: Date.now() };
-  ns.write(STATE_FILE, JSON.stringify(merged, null, 2), "w");
+function shouldEmit(now, last, everyMs) {
+  return now - last >= everyMs;
 }
 
-function shouldEmit(now, previous, intervalMs) {
-  if (!previous) return true;
-  return now - previous >= intervalMs;
+function info(ns, scope, message) {
+  ns.print(`[${scope}] ${message}`);
 }
 
 /** @param {NS} ns */
@@ -153,17 +129,19 @@ export async function main(ns) {
     const copiedTo = await deployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
     const starterTarget = getStarterTarget(ns);
 
-    writeState(ns, {
+    bbMainWriteState(ns, {
       discoveredHosts: net.hosts.length,
       rootedHosts: net.hosts.filter((h) => ns.hasRootAccess(h)).length,
       runners: runners.length,
       starterTarget,
     });
 
-    if (shouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
+    if (bbMainShouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
       lastStatusAt = now;
-      ns.print(
-        `[main] hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
+      info(
+        ns,
+        "main",
+        `hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
           `newRoot=${rootedNow.length} deployed=${copiedTo} starter=${starterTarget}`,
       );
     }
