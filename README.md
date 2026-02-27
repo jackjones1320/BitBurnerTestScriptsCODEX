@@ -8,7 +8,7 @@ Phase 1 foundation is now implemented.
 - Root automation using whichever port crackers are currently present.
 - Fleet deployment for worker scripts (`hack/grow/weaken`).
 - 8GB-safe bootstrap path (`starter/starter.js`) that pushes `starter/early-worker.js` to rooted servers first.
-- Boot loop in `main.js` with periodic status logging and automatic `starter/early-worker.js` launch across runner hosts.
+- Boot loop in `main.js` with periodic status logging and automatic `/scripts/worker-{hack,grow,weaken}.js` launch across runner hosts.
 - Persistent runtime snapshot written to `/data/runtime-state.txt`.
 
 ## Getting started
@@ -38,7 +38,7 @@ run main.js
 Expected tail output (every ~30s by default):
 
 ```text
-[main] hosts=... rooted=... newRoot=... copied=... starter=... launchedHosts=... launchedThreads=...
+[main] hosts=... rooted=... newRoot=... copied=... starter=... worker=... launchedHosts=... launchedThreads=...
 ```
 
 ## Config

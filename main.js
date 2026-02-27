@@ -13,7 +13,6 @@ const CONFIG = {
 };
 
 const STATE_FILE = "/data/runtime-state.txt";
-const STARTER_WORKER = "/starter/early-worker.js";
 
 function bbMainGetStarterTarget(ns) {
   for (const target of CONFIG.starterTargets) {
@@ -119,11 +118,23 @@ async function bbMainDeployWorkersFleet(ns, hosts, scripts) {
 }
 
 
-async function bbMainLaunchStarterWorkers(ns, hosts, target) {
-  const ramPerThread = ns.getScriptRam(STARTER_WORKER, "home");
+function bbMainPickWorkerScript(ns, target) {
+  const minSec = ns.getServerMinSecurityLevel(target);
+  const curSec = ns.getServerSecurityLevel(target);
+  const maxMoney = ns.getServerMaxMoney(target);
+  const curMoney = ns.getServerMoneyAvailable(target);
+
+  if (curSec > minSec + 5) return "/scripts/worker-weaken.js";
+  if (maxMoney > 0 && curMoney < maxMoney * 0.75) return "/scripts/worker-grow.js";
+  return "/scripts/worker-hack.js";
+}
+
+async function bbMainLaunchWorkers(ns, hosts, target) {
+  const workerScript = bbMainPickWorkerScript(ns, target);
+  const ramPerThread = ns.getScriptRam(workerScript, "home");
   if (!Number.isFinite(ramPerThread) || ramPerThread <= 0) {
-    ns.print(`[main] Cannot launch ${STARTER_WORKER}; RAM cost was ${ramPerThread}.`);
-    return { launchedHosts: 0, launchedThreads: 0 };
+    ns.print(`[main] Cannot launch ${workerScript}; RAM cost was ${ramPerThread}.`);
+    return { launchedHosts: 0, launchedThreads: 0, workerScript };
   }
 
   let launchedHosts = 0;
@@ -132,11 +143,6 @@ async function bbMainLaunchStarterWorkers(ns, hosts, target) {
   for (const host of hosts) {
     if (!ns.hasRootAccess(host)) continue;
 
-    if (host !== "home") {
-      const copied = await ns.scp(STARTER_WORKER, host, "home");
-      if (!copied) continue;
-    }
-
     const maxRam = ns.getServerMaxRam(host);
     const usedRam = ns.getServerUsedRam(host);
     const reserve = host === "home" ? CONFIG.homeReserveGb : 0;
@@ -144,15 +150,18 @@ async function bbMainLaunchStarterWorkers(ns, hosts, target) {
     const threads = Math.floor(freeRam / ramPerThread);
     if (threads <= 0) continue;
 
-    ns.scriptKill(STARTER_WORKER, host);
-    const pid = ns.exec(STARTER_WORKER, host, threads, target);
+    for (const script of CONFIG.deploy.workerScripts) {
+      ns.scriptKill(script, host);
+    }
+
+    const pid = ns.exec(workerScript, host, threads, target);
     if (pid !== 0) {
       launchedHosts += 1;
       launchedThreads += threads;
     }
   }
 
-  return { launchedHosts, launchedThreads };
+  return { launchedHosts, launchedThreads, workerScript };
 }
 
 function bbMainReadState(ns) {
@@ -192,7 +201,7 @@ export async function main(ns) {
     const runners = bbMainGetRunnerHosts(ns, net.hosts);
     const copiedTo = await bbMainDeployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
     const starterTarget = bbMainGetStarterTarget(ns);
-    const launched = await bbMainLaunchStarterWorkers(ns, runners, starterTarget);
+    const launched = await bbMainLaunchWorkers(ns, runners, starterTarget);
 
     bbMainWriteState(ns, {
       discoveredHosts: net.hosts.length,
@@ -201,6 +210,7 @@ export async function main(ns) {
       starterTarget,
       launchedHosts: launched.launchedHosts,
       launchedThreads: launched.launchedThreads,
+      activeWorkerScript: launched.workerScript,
     });
 
     if (bbMainShouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
@@ -208,7 +218,7 @@ export async function main(ns) {
       ns.print(
         `[main] hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
           `newRoot=${rootedNow.length} copied=${copiedTo} starter=${starterTarget} ` +
-          `launchedHosts=${launched.launchedHosts} launchedThreads=${launched.launchedThreads}`,
+          `worker=${launched.workerScript} launchedHosts=${launched.launchedHosts} launchedThreads=${launched.launchedThreads}`,
       );
     }
 
