@@ -1,6 +1,17 @@
-const WORKER = "/starting/early-worker.js";
 const HOME_RESERVE_GB = 2; // keep terminal responsiveness on 8GB starts
 const LOOP_MS = 10_000;
+
+function resolveWorkerScript(ns) {
+  const scriptName = ns.getScriptName();
+  const siblingWorker = scriptName.replace(/starter\.js$/, "early-worker.js");
+  const candidates = [siblingWorker, "/starting/early-worker.js", "starting/early-worker.js"];
+
+  for (const path of candidates) {
+    if (ns.fileExists(path, "home")) return path;
+  }
+
+  return candidates[0];
+}
 
 function scanAll(ns) {
   const seen = new Set(["home"]);
@@ -87,8 +98,8 @@ async function deploy(ns, hosts, target) {
     const t = Math.floor(free / ramPerThread);
     if (t <= 0) continue;
 
-    ns.scriptKill(WORKER, host);
-    const pid = ns.exec(WORKER, host, t, target);
+    ns.scriptKill(workerScript, host);
+    const pid = ns.exec(workerScript, host, t, target);
     if (pid !== 0) threads += t;
   }
 
@@ -98,7 +109,7 @@ async function deploy(ns, hosts, target) {
 /** @param {NS} ns */
 export async function main(ns) {
   ns.disableLog("ALL");
-  ns.tail();
+  ns.ui.openTail();
 
   while (true) {
     const hosts = scanAll(ns);
