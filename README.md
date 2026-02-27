@@ -19,18 +19,15 @@ Phase 1 foundation is now implemented.
 
    ```text
    run starting/starter.js
-   # or: run starter/starter.js
    ```
 
-2. Let it discover + root hosts and deploy `early-worker.js` to remote servers such as `n00dles` (works for both `/starting` and `/starter` layouts).
+2. Let it discover + root hosts and deploy `starting/early-worker.js` to remote servers such as `n00dles`.
 3. Keep it running while you buy TOR/programs and upgrade home RAM.
 4. Once home RAM is comfortably larger (recommended `>= 32GB`), switch to the full runner:
 
    ```text
    run main.js
    ```
-
-If your scripts are stored under `/starter/` instead of `/starting/`, the bootstrap script now auto-detects its sibling `early-worker.js` path to avoid invalid thread calculations.
 
 ### Normal startup (already upgraded home)
 
