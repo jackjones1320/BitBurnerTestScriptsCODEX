@@ -1,25 +1,10 @@
-const CONFIG = {
-  loopIntervalMs: 5_000,
-  statusIntervalMs: 30_000,
-  homeReserveGb: 16,
-  deploy: {
-    workerScripts: [
-      "/scripts/worker-hack.js",
-      "/scripts/worker-grow.js",
-      "/scripts/worker-weaken.js",
-    ],
-  },
-  rooting: {
-    crackers: [
-      { file: "BruteSSH.exe", fn: "brutessh" },
-      { file: "FTPCrack.exe", fn: "ftpcrack" },
-      { file: "relaySMTP.exe", fn: "relaysmtp" },
-      { file: "HTTPWorm.exe", fn: "httpworm" },
-      { file: "SQLInject.exe", fn: "sqlinject" },
-    ],
-  },
-  starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
-};
+import { CONFIG } from "./config/defaults.js";
+import { rootMany } from "./lib/net/access.js";
+import { deployWorkersFleet } from "./lib/net/deploy.js";
+import { scanAllServers } from "./lib/net/scan.js";
+import { createLogger } from "./lib/runtime/logger.js";
+import { writeState } from "./lib/runtime/state.js";
+import { shouldEmit, sleepSafe } from "./lib/runtime/timing.js";
 
 function getStarterTarget(ns) {
   for (const target of CONFIG.starterTargets) {
