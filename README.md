@@ -1,43 +1,28 @@
 # Bitburner Autonomous Runner
 
-This repo now supports a **low-RAM starter path** for brand-new saves (8GB home), plus the modular main framework.
+Phase 1 foundation is now implemented.
 
-## Start from a fresh save (8GB home)
+## Current capabilities (Phase 1)
 
-Run this first:
+- Network BFS discovery from `home`.
+- Root automation using whichever port crackers are currently present.
+- Fleet deployment for worker scripts (`hack/grow/weaken`).
+- Boot loop skeleton in `main.js` with periodic status logging.
+- Persistent runtime snapshot written to `/data/runtime-state.txt`.
 
-```text
-run /starting/starter.js
-```
+## Start
 
-What it does:
-
-- scans the network
-- attempts rooting with whatever crackers you own
-- auto-deploys a tiny early worker to rooted servers
-- picks a best early target and keeps hacking/growing/weakening it
-
-Expected log line:
-
-```text
-[starter] hosts=... newRoots=... target=... threads=...
-```
-
-## Switch to the modular framework (after upgrades)
-
-After you upgrade home RAM (recommended `>= 32GB`), run:
+In Bitburner terminal:
 
 ```text
 run main.js
 ```
 
-Phase 1 main framework currently provides:
+Expected tail output (every ~30s by default):
 
-- Network BFS discovery from `home`
-- Root automation using available port crackers
-- Fleet deployment for worker scripts (`hack/grow/weaken`)
-- Boot loop skeleton in `main.js` with periodic status logging
-- Runtime snapshot written to `/data/runtime-state.txt`
+```text
+[main] hosts=... rooted=... newRoot=... deployed=... starter=...
+```
 
 ## Config
 
@@ -52,6 +37,6 @@ Tune values in `config/defaults.js`:
 
 Phase 2 will add:
 
-- Early-game money execution strategy integrated into modular scheduler
-- automatic target scoring/selection for the main system
-- active remote job placement in the `main.js` path
+- Early-game money execution strategy
+- automatic target scoring/selection
+- active remote job placement
