@@ -1,6 +1,17 @@
-const WORKER = "/starting/early-worker.js";
 const HOME_RESERVE_GB = 2; // keep terminal responsiveness on 8GB starts
 const LOOP_MS = 10_000;
+
+function resolveWorkerScript(ns) {
+  const scriptName = ns.getScriptName();
+  const siblingWorker = scriptName.replace(/starter\.js$/, "early-worker.js");
+  const candidates = [siblingWorker, "/starter/early-worker.js", "starter/early-worker.js"];
+
+  for (const path of candidates) {
+    if (ns.fileExists(path, "home")) return path;
+  }
+
+  return candidates[0];
+}
 
 function scanAll(ns) {
   const seen = new Set(["home"]);
@@ -59,13 +70,32 @@ function pickTarget(ns, hosts) {
   return best;
 }
 
-function deploy(ns, hosts, target) {
-  const ramPerThread = ns.getScriptRam(WORKER, "home");
+function sortRunnerHosts(ns, hosts) {
+  return [...hosts].sort((a, b) => {
+    if (a === "home" && b !== "home") return 1;
+    if (b === "home" && a !== "home") return -1;
+
+    const freeA = ns.getServerMaxRam(a) - ns.getServerUsedRam(a);
+    const freeB = ns.getServerMaxRam(b) - ns.getServerUsedRam(b);
+    return freeB - freeA;
+  });
+}
+
+async function deploy(ns, hosts, target) {
+  const workerScript = resolveWorkerScript(ns);
+  const ramPerThread = ns.getScriptRam(workerScript, "home");
+  if (!Number.isFinite(ramPerThread) || ramPerThread <= 0) {
+    ns.print(`[starter] Cannot deploy: RAM cost for ${workerScript} is ${ramPerThread}. Ensure the worker script exists on home.`);
+    return 0;
+  }
+
   let threads = 0;
 
-  for (const host of hosts) {
+  for (const host of sortRunnerHosts(ns, hosts)) {
     if (!ns.hasRootAccess(host)) continue;
-    if (!ns.scp(WORKER, host, "home")) continue;
+
+    const copied = host === "home" ? true : await ns.scp(workerScript, host, "home");
+    if (!copied) continue;
 
     const max = ns.getServerMaxRam(host);
     const used = ns.getServerUsedRam(host);
@@ -74,8 +104,8 @@ function deploy(ns, hosts, target) {
     const t = Math.floor(free / ramPerThread);
     if (t <= 0) continue;
 
-    ns.scriptKill(WORKER, host);
-    const pid = ns.exec(WORKER, host, t, target);
+    ns.scriptKill(workerScript, host);
+    const pid = ns.exec(workerScript, host, t, target);
     if (pid !== 0) threads += t;
   }
 
@@ -85,7 +115,7 @@ function deploy(ns, hosts, target) {
 /** @param {NS} ns */
 export async function main(ns) {
   ns.disableLog("ALL");
-  ns.tail();
+  ns.ui.openTail();
 
   while (true) {
     const hosts = scanAll(ns);
@@ -97,7 +127,7 @@ export async function main(ns) {
     }
 
     const target = pickTarget(ns, hosts);
-    const totalThreads = deploy(ns, hosts, target);
+    const totalThreads = await deploy(ns, hosts, target);
 
     ns.clearLog();
     ns.print(`[starter] hosts=${hosts.length} newRoots=${newRoots} target=${target} threads=${totalThreads}`);
