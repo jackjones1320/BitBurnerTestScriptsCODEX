@@ -1,7 +1,5 @@
 /**
  * Global runtime tuning values.
- *
- * Phase 1 scope: foundation values only; hacking math constants are added in later phases.
  */
 export const CONFIG = {
   loopIntervalMs: 5_000,
@@ -23,6 +21,11 @@ export const CONFIG = {
       { file: "HTTPWorm.exe", fn: "httpworm" },
       { file: "SQLInject.exe", fn: "sqlinject" },
     ],
+  },
+  phase2: {
+    targetPoolSize: 5,
+    minSecurityBuffer: 5,
+    growMoneyThreshold: 0.75,
   },
   starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
 };
