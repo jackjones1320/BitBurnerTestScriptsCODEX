@@ -4,7 +4,7 @@ const LOOP_MS = 10_000;
 function resolveWorkerScript(ns) {
   const scriptName = ns.getScriptName();
   const siblingWorker = scriptName.replace(/starter\.js$/, "early-worker.js");
-  const candidates = [siblingWorker, "/starting/early-worker.js", "starting/early-worker.js"];
+  const candidates = [siblingWorker, "/starter/early-worker.js", "starter/early-worker.js"];
 
   for (const path of candidates) {
     if (ns.fileExists(path, "home")) return path;
