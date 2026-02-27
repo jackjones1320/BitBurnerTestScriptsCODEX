@@ -33,6 +33,22 @@ function getRunnerHosts(ns, discovered) {
   });
 }
 
+function safeHasRootAccess(ns, host) {
+  try {
+    return ns.hasRootAccess(host);
+  } catch {
+    return false;
+  }
+}
+
+function countRootedHosts(ns, hosts) {
+  let rooted = 0;
+  for (const host of hosts) {
+    if (safeHasRootAccess(ns, host)) rooted += 1;
+  }
+  return rooted;
+}
+
 function scoreMapFromRanked(rankedTargets) {
   const byHost = new Map();
   for (const entry of rankedTargets) {
@@ -146,7 +162,7 @@ export async function main(ns) {
 
     writeState(ns, {
       discoveredHosts: net.hosts.length,
-      rootedHosts: net.hosts.filter((h) => ns.hasRootAccess(h)).length,
+      rootedHosts: countRootedHosts(ns, net.hosts),
       runners: runnerHosts.length,
       topTargets: rankedTargets.map((t) => t.host),
       activeTarget: target,
@@ -170,7 +186,7 @@ export async function main(ns) {
         ? `money=${Math.floor(prepState.curMoney)}/${Math.floor(prepState.maxMoney)} sec=${prepState.curSec.toFixed(2)}/${prepState.minSec.toFixed(2)}`
         : "money=0/0 sec=0/0";
       logger.info(
-        `hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
+        `hosts=${net.hosts.length} rooted=${countRootedHosts(ns, net.hosts)} ` +
           `newRoot=${rootedNow.length} copied=${copiedTo} mode=${mode} target=${target ?? "none"} fleet=${fleetAction.action} hacknet=${hacknetAction.action} ` +
           `contracts(s/f/k)=${contractSummary.solved}/${contractSummary.failed}/${contractSummary.skipped} ${status} ` +
           `launchedScripts=${launched.launchedScripts} launchedThreads=${launched.launchedThreads} ` +
