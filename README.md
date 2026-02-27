@@ -29,8 +29,6 @@ Phase 1 foundation is now implemented.
    run main.js
    ```
 
-If your scripts are stored under `/starter/` instead of `/starting/`, the bootstrap script now auto-detects its sibling `early-worker.js` path to avoid invalid thread calculations.
-
 ### Normal startup (already upgraded home)
 
 ```text

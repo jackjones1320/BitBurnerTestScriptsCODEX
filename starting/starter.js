@@ -82,19 +82,13 @@ function sortRunnerHosts(ns, hosts) {
 }
 
 async function deploy(ns, hosts, target) {
-  const workerScript = resolveWorkerScript(ns);
-  const ramPerThread = ns.getScriptRam(workerScript, "home");
-  if (!Number.isFinite(ramPerThread) || ramPerThread <= 0) {
-    ns.print(`[starter] Cannot deploy: RAM cost for ${workerScript} is ${ramPerThread}. Ensure the worker script exists on home.`);
-    return 0;
-  }
-
+  const ramPerThread = ns.getScriptRam(WORKER, "home");
   let threads = 0;
 
   for (const host of sortRunnerHosts(ns, hosts)) {
     if (!ns.hasRootAccess(host)) continue;
 
-    const copied = host === "home" ? true : await ns.scp(workerScript, host, "home");
+    const copied = host === "home" ? true : await ns.scp(WORKER, host, "home");
     if (!copied) continue;
 
     const max = ns.getServerMaxRam(host);
