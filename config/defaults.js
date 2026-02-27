@@ -27,5 +27,12 @@ export const CONFIG = {
     minSecurityBuffer: 5,
     growMoneyThreshold: 0.75,
   },
+  phase3: {
+    securityTolerance: 0.5,
+    moneyReadyRatio: 0.99,
+    hackFraction: 0.1,
+    landingSpacingMs: 120,
+    dispatchCadenceMs: 2_000,
+  },
   starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
 };

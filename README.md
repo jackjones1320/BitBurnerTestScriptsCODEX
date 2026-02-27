@@ -1,8 +1,8 @@
 # Bitburner Autonomous Runner
 
-Phase 2 early-game automation is now implemented.
+Phase 3 prep + deterministic batch foundations are now implemented.
 
-## Current capabilities (Phase 2)
+## Current capabilities (Phase 3 foundation)
 
 - Network BFS discovery from `home`.
 - Root automation using whichever port crackers are currently present.
@@ -10,6 +10,9 @@ Phase 2 early-game automation is now implemented.
 - 8GB-safe bootstrap path (`starter/starter.js`) that pushes `starter/early-worker.js` to rooted servers first.
 - Boot loop in `main.js` with periodic status logging and automatic `/scripts/worker-{hack,grow,weaken}.js` launch across runner hosts.
 - Automatic target scoring/selection with a rotating top target pool.
+- Target prep cycle that converges security and money before entering batch mode.
+- Deterministic HGWW batch plan creation with collision-safe landing offsets.
+- Basic multi-host batch dispatcher that splits threads across available runner capacity.
 - Active remote job placement: each runner host is assigned the best available target and an operation (`weaken`, `grow`, or `hack`) based on live server state.
 - Persistent runtime snapshot written to `/data/runtime-state.txt`.
 
@@ -57,8 +60,8 @@ Tune values in `config/defaults.js`:
 
 ## Next phase
 
-Phase 3 will add:
+Phase 4 will add:
 
-- Target prep convergence (min security + max money)
-- deterministic HGWW batch planning
-- collision-safe queued scheduling
+- Purchased server automation and replacement policy
+- Smarter allocator heuristics with per-target queue balancing
+- Expanded runtime telemetry for batch throughput
