@@ -1,30 +1,12 @@
-const CONFIG = {
-  loopIntervalMs: 5_000,
-  statusIntervalMs: 30_000,
-  homeReserveGb: 16,
-  deploy: {
-    workerScripts: [
-      "/scripts/worker-hack.js",
-      "/scripts/worker-grow.js",
-      "/scripts/worker-weaken.js",
-    ],
-  },
-  starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
-};
+import { CONFIG } from "./config/defaults.js";
+import { rankTargets } from "./lib/hack/score.js";
+import { rootMany } from "./lib/net/access.js";
+import { deployWorkersFleet } from "./lib/net/deploy.js";
+import { scanAllServers } from "./lib/net/scan.js";
+import { createLogger } from "./lib/runtime/logger.js";
+import { writeState } from "./lib/runtime/state.js";
 
-const STATE_FILE = "/data/runtime-state.txt";
-
-function bbMainGetStarterTarget(ns) {
-  for (const target of CONFIG.starterTargets) {
-    if (!ns.serverExists(target)) continue;
-    const level = ns.getServerRequiredHackingLevel(target);
-    if (level <= ns.getHackingLevel()) return target;
-  }
-
-  return "n00dles";
-}
-
-function bbMainGetRunnerHosts(ns, discovered) {
+function getRunnerHosts(ns, discovered) {
   return discovered.filter((host) => {
     if (!ns.hasRootAccess(host)) return false;
     if (ns.getServerMaxRam(host) <= 0) return false;
@@ -38,110 +20,51 @@ function bbMainGetRunnerHosts(ns, discovered) {
   });
 }
 
-function bbMainScanAllServers(ns) {
-  const visited = new Set(["home"]);
-  const queue = ["home"];
-  const edges = { home: ns.scan("home") };
-
-  while (queue.length > 0) {
-    const host = queue.shift();
-    const neighbors = ns.scan(host);
-    edges[host] = neighbors;
-
-    for (const next of neighbors) {
-      if (!visited.has(next)) {
-        visited.add(next);
-        queue.push(next);
-      }
-    }
+function pickStarterFallbackTarget(ns) {
+  for (const target of CONFIG.starterTargets) {
+    if (!ns.serverExists(target)) continue;
+    const level = ns.getServerRequiredHackingLevel(target);
+    if (level <= ns.getHackingLevel()) return target;
   }
 
-  return { hosts: [...visited], edges };
+  return "n00dles";
 }
 
-function bbMainTryRoot(ns, host) {
-  if (host === "home" || ns.hasRootAccess(host)) return true;
-
-  let opened = 0;
-  if (ns.fileExists("BruteSSH.exe", "home")) {
-    ns.brutessh(host);
-    opened += 1;
-  }
-  if (ns.fileExists("FTPCrack.exe", "home")) {
-    ns.ftpcrack(host);
-    opened += 1;
-  }
-  if (ns.fileExists("relaySMTP.exe", "home")) {
-    ns.relaysmtp(host);
-    opened += 1;
-  }
-  if (ns.fileExists("HTTPWorm.exe", "home")) {
-    ns.httpworm(host);
-    opened += 1;
-  }
-  if (ns.fileExists("SQLInject.exe", "home")) {
-    ns.sqlinject(host);
-    opened += 1;
-  }
-
-  if (opened < ns.getServerNumPortsRequired(host)) return false;
-
-  ns.nuke(host);
-  return ns.hasRootAccess(host);
+function shouldEmit(now, previous, intervalMs) {
+  if (!previous) return true;
+  return now - previous >= intervalMs;
 }
 
-function bbMainRootMany(ns, hosts) {
-  const rootedNow = [];
-  for (const host of hosts) {
-    const hadRoot = ns.hasRootAccess(host);
-    const hasRoot = bbMainTryRoot(ns, host);
-    if (!hadRoot && hasRoot) rootedNow.push(host);
-  }
-
-  return rootedNow;
-}
-
-async function bbMainDeployWorkersFleet(ns, hosts, scripts) {
-  let copied = 0;
-  for (const host of hosts) {
-    if (!ns.hasRootAccess(host)) continue;
-
-    if (host !== "home") {
-      const copiedHost = await ns.scp(scripts, host, "home");
-      if (!copiedHost) continue;
-    }
-
-    copied += 1;
-  }
-
-  return copied;
-}
-
-
-function bbMainPickWorkerScript(ns, target) {
+function chooseOperation(ns, target) {
   const minSec = ns.getServerMinSecurityLevel(target);
   const curSec = ns.getServerSecurityLevel(target);
   const maxMoney = ns.getServerMaxMoney(target);
   const curMoney = ns.getServerMoneyAvailable(target);
 
-  if (curSec > minSec + 5) return "/scripts/worker-weaken.js";
-  if (maxMoney > 0 && curMoney < maxMoney * 0.75) return "/scripts/worker-grow.js";
+  if (curSec > minSec + CONFIG.phase2.minSecurityBuffer) {
+    return "/scripts/worker-weaken.js";
+  }
+
+  if (maxMoney > 0 && curMoney < maxMoney * CONFIG.phase2.growMoneyThreshold) {
+    return "/scripts/worker-grow.js";
+  }
+
   return "/scripts/worker-hack.js";
 }
 
-async function bbMainLaunchWorkers(ns, hosts, target) {
-  const workerScript = bbMainPickWorkerScript(ns, target);
-  const ramPerThread = ns.getScriptRam(workerScript, "home");
-  if (!Number.isFinite(ramPerThread) || ramPerThread <= 0) {
-    ns.print(`[main] Cannot launch ${workerScript}; RAM cost was ${ramPerThread}.`);
-    return { launchedHosts: 0, launchedThreads: 0, workerScript };
-  }
+function buildAssignments(ns, runnerHosts, rankedTargets) {
+  if (rankedTargets.length === 0) return [];
 
-  let launchedHosts = 0;
-  let launchedThreads = 0;
+  const assignments = [];
+  let idx = 0;
 
-  for (const host of hosts) {
-    if (!ns.hasRootAccess(host)) continue;
+  for (const host of runnerHosts) {
+    const target = rankedTargets[idx % rankedTargets.length].host;
+    idx += 1;
+
+    const script = chooseOperation(ns, target);
+    const ramPerThread = ns.getScriptRam(script, "home");
+    if (!Number.isFinite(ramPerThread) || ramPerThread <= 0) continue;
 
     const maxRam = ns.getServerMaxRam(host);
     const usedRam = ns.getServerUsedRam(host);
@@ -150,75 +73,69 @@ async function bbMainLaunchWorkers(ns, hosts, target) {
     const threads = Math.floor(freeRam / ramPerThread);
     if (threads <= 0) continue;
 
+    assignments.push({ host, target, script, threads });
+  }
+
+  return assignments;
+}
+
+function executeAssignments(ns, assignments) {
+  let launchedHosts = 0;
+  let launchedThreads = 0;
+
+  for (const job of assignments) {
     for (const script of CONFIG.deploy.workerScripts) {
-      ns.scriptKill(script, host);
+      ns.scriptKill(script, job.host);
     }
 
-    const pid = ns.exec(workerScript, host, threads, target);
+    const pid = ns.exec(job.script, job.host, job.threads, job.target);
     if (pid !== 0) {
       launchedHosts += 1;
-      launchedThreads += threads;
+      launchedThreads += job.threads;
     }
   }
 
-  return { launchedHosts, launchedThreads, workerScript };
-}
-
-function bbMainReadState(ns) {
-  if (!ns.fileExists(STATE_FILE, "home")) return {};
-
-  try {
-    const raw = ns.read(STATE_FILE);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function bbMainWriteState(ns, partial) {
-  const current = bbMainReadState(ns);
-  const merged = { ...current, ...partial, updatedAt: Date.now() };
-  ns.write(STATE_FILE, JSON.stringify(merged, null, 2), "w");
-}
-
-function bbMainShouldEmit(now, previous, intervalMs) {
-  if (!previous) return true;
-  return now - previous >= intervalMs;
+  return { launchedHosts, launchedThreads };
 }
 
 /** @param {NS} ns */
 export async function main(ns) {
   ns.disableLog("ALL");
   ns.ui.openTail();
+  const logger = createLogger(ns, "main");
 
   let lastStatusAt = 0;
 
   while (true) {
     const now = Date.now();
+    const net = scanAllServers(ns);
+    const rootedNow = rootMany(ns, net.hosts, CONFIG.rooting.crackers);
+    const runnerHosts = getRunnerHosts(ns, net.hosts);
+    const copiedTo = await deployWorkersFleet(ns, runnerHosts, CONFIG.deploy.workerScripts);
 
-    const net = bbMainScanAllServers(ns);
-    const rootedNow = bbMainRootMany(ns, net.hosts);
-    const runners = bbMainGetRunnerHosts(ns, net.hosts);
-    const copiedTo = await bbMainDeployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
-    const starterTarget = bbMainGetStarterTarget(ns);
-    const launched = await bbMainLaunchWorkers(ns, runners, starterTarget);
+    const rankedTargets = rankTargets(ns, net.hosts, CONFIG.phase2.targetPoolSize);
+    const fallbackTarget = pickStarterFallbackTarget(ns);
+    const effectiveTargets = rankedTargets.length > 0 ? rankedTargets : [{ host: fallbackTarget, score: 0 }];
 
-    bbMainWriteState(ns, {
+    const assignments = buildAssignments(ns, runnerHosts, effectiveTargets);
+    const launched = executeAssignments(ns, assignments);
+
+    writeState(ns, {
       discoveredHosts: net.hosts.length,
       rootedHosts: net.hosts.filter((h) => ns.hasRootAccess(h)).length,
-      runners: runners.length,
-      starterTarget,
+      runners: runnerHosts.length,
+      topTargets: rankedTargets.map((t) => t.host),
       launchedHosts: launched.launchedHosts,
       launchedThreads: launched.launchedThreads,
-      activeWorkerScript: launched.workerScript,
     });
 
-    if (bbMainShouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
+    if (shouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
       lastStatusAt = now;
-      ns.print(
-        `[main] hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
-          `newRoot=${rootedNow.length} copied=${copiedTo} starter=${starterTarget} ` +
-          `worker=${launched.workerScript} launchedHosts=${launched.launchedHosts} launchedThreads=${launched.launchedThreads}`,
+      const targetSummary = effectiveTargets.map((t) => t.host).join(",");
+      logger.info(
+        `hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
+          `newRoot=${rootedNow.length} copied=${copiedTo} targets=${targetSummary} ` +
+          `launchedHosts=${launched.launchedHosts} launchedThreads=${launched.launchedThreads}`,
       );
     }
 

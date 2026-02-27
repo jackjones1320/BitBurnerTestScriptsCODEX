@@ -1,14 +1,16 @@
 # Bitburner Autonomous Runner
 
-Phase 1 foundation is now implemented.
+Phase 2 early-game automation is now implemented.
 
-## Current capabilities (Phase 1)
+## Current capabilities (Phase 2)
 
 - Network BFS discovery from `home`.
 - Root automation using whichever port crackers are currently present.
 - Fleet deployment for worker scripts (`hack/grow/weaken`).
 - 8GB-safe bootstrap path (`starter/starter.js`) that pushes `starter/early-worker.js` to rooted servers first.
 - Boot loop in `main.js` with periodic status logging and automatic `/scripts/worker-{hack,grow,weaken}.js` launch across runner hosts.
+- Automatic target scoring/selection with a rotating top target pool.
+- Active remote job placement: each runner host is assigned the best available target and an operation (`weaken`, `grow`, or `hack`) based on live server state.
 - Persistent runtime snapshot written to `/data/runtime-state.txt`.
 
 ## Getting started
@@ -38,7 +40,7 @@ run main.js
 Expected tail output (every ~30s by default):
 
 ```text
-[main] hosts=... rooted=... newRoot=... copied=... starter=... worker=... launchedHosts=... launchedThreads=...
+[main] hosts=... rooted=... newRoot=... copied=... targets=... launchedHosts=... launchedThreads=...
 ```
 
 ## Config
@@ -48,12 +50,15 @@ Tune values in `config/defaults.js`:
 - `homeReserveGb` (default `16`)
 - `loopIntervalMs`
 - `statusIntervalMs`
+- `phase2.targetPoolSize`
+- `phase2.minSecurityBuffer`
+- `phase2.growMoneyThreshold`
 - `starterTargets`
 
 ## Next phase
 
-Phase 2 will add:
+Phase 3 will add:
 
-- Early-game money execution strategy
-- automatic target scoring/selection
-- active remote job placement
+- Target prep convergence (min security + max money)
+- deterministic HGWW batch planning
+- collision-safe queued scheduling
