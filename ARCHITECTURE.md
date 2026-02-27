@@ -65,7 +65,8 @@ This document defines the final target architecture for an end-to-end autonomous
 
 To support fresh installs where `home` only has 8GB RAM, startup is split:
 
-- `starting/starter.js` handles discovery/rooting and deploys `starting/early-worker.js` across rooted hosts.
+- `starter/starter.js` handles discovery/rooting and deploys the sibling `early-worker.js` (with `/starter` fallbacks) across rooted hosts.
+- Starter validates worker RAM cost before deployment to avoid invalid infinite-thread launch attempts when the worker path is missing.
 - Deployment is remote-first (non-home hosts before `home`) so worker capacity appears even when local RAM is tight.
 - `home` keeps a small reserve (`2GB`) to preserve terminal responsiveness.
 - Once home RAM is upgraded, hand off control to `main.js` for full orchestration.
