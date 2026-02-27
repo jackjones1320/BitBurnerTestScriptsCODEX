@@ -15,15 +15,21 @@ import { shouldEmit } from "./lib/runtime/timing.js";
 
 function getRunnerHosts(ns, discovered) {
   return discovered.filter((host) => {
-    if (!ns.hasRootAccess(host)) return false;
-    if (ns.getServerMaxRam(host) <= 0) return false;
+    try {
+      if (!ns.hasRootAccess(host)) return false;
 
-    if (host === "home") {
-      const free = ns.getServerMaxRam(host) - ns.getServerUsedRam(host);
-      return free > CONFIG.homeReserveGb;
+      const maxRam = ns.getServerMaxRam(host);
+      if (maxRam <= 0) return false;
+
+      if (host === "home") {
+        const free = maxRam - ns.getServerUsedRam(host);
+        return free > CONFIG.homeReserveGb;
+      }
+
+      return true;
+    } catch {
+      return false;
     }
-
-    return true;
   });
 }
 
