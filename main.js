@@ -13,6 +13,7 @@ const CONFIG = {
 };
 
 const STATE_FILE = "/data/runtime-state.txt";
+const STARTER_WORKER = "/starter/early-worker.js";
 
 function bbMainGetStarterTarget(ns) {
   for (const target of CONFIG.starterTargets) {
@@ -117,6 +118,43 @@ async function bbMainDeployWorkersFleet(ns, hosts, scripts) {
   return copied;
 }
 
+
+async function bbMainLaunchStarterWorkers(ns, hosts, target) {
+  const ramPerThread = ns.getScriptRam(STARTER_WORKER, "home");
+  if (!Number.isFinite(ramPerThread) || ramPerThread <= 0) {
+    ns.print(`[main] Cannot launch ${STARTER_WORKER}; RAM cost was ${ramPerThread}.`);
+    return { launchedHosts: 0, launchedThreads: 0 };
+  }
+
+  let launchedHosts = 0;
+  let launchedThreads = 0;
+
+  for (const host of hosts) {
+    if (!ns.hasRootAccess(host)) continue;
+
+    if (host !== "home") {
+      const copied = await ns.scp(STARTER_WORKER, host, "home");
+      if (!copied) continue;
+    }
+
+    const maxRam = ns.getServerMaxRam(host);
+    const usedRam = ns.getServerUsedRam(host);
+    const reserve = host === "home" ? CONFIG.homeReserveGb : 0;
+    const freeRam = Math.max(0, maxRam - usedRam - reserve);
+    const threads = Math.floor(freeRam / ramPerThread);
+    if (threads <= 0) continue;
+
+    ns.scriptKill(STARTER_WORKER, host);
+    const pid = ns.exec(STARTER_WORKER, host, threads, target);
+    if (pid !== 0) {
+      launchedHosts += 1;
+      launchedThreads += threads;
+    }
+  }
+
+  return { launchedHosts, launchedThreads };
+}
+
 function bbMainReadState(ns) {
   if (!ns.fileExists(STATE_FILE, "home")) return {};
 
@@ -154,19 +192,23 @@ export async function main(ns) {
     const runners = bbMainGetRunnerHosts(ns, net.hosts);
     const copiedTo = await bbMainDeployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
     const starterTarget = bbMainGetStarterTarget(ns);
+    const launched = await bbMainLaunchStarterWorkers(ns, runners, starterTarget);
 
     bbMainWriteState(ns, {
       discoveredHosts: net.hosts.length,
       rootedHosts: net.hosts.filter((h) => ns.hasRootAccess(h)).length,
       runners: runners.length,
       starterTarget,
+      launchedHosts: launched.launchedHosts,
+      launchedThreads: launched.launchedThreads,
     });
 
     if (bbMainShouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
       lastStatusAt = now;
       ns.print(
         `[main] hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
-          `newRoot=${rootedNow.length} deployed=${copiedTo} starter=${starterTarget}`,
+          `newRoot=${rootedNow.length} copied=${copiedTo} starter=${starterTarget} ` +
+          `launchedHosts=${launched.launchedHosts} launchedThreads=${launched.launchedThreads}`,
       );
     }
 
