@@ -13,7 +13,8 @@ Phase 4 fleet scaling has been started with purchased server management and a sm
 - Target prep cycle that converges security and money before entering batch mode.
 - Deterministic HGWW batch plan creation with collision-safe landing offsets.
 - Smarter multi-host dispatcher with job-priority sorting, best-fit thread placement, and dropped-thread telemetry.
-- Purchased server lifecycle automation (buy and replace weakest when affordable) with conservative money reserve.
+- Purchased server lifecycle automation (buy and replace weakest when affordable) with conservative money reserve and spend notifications.
+- Hacknet automation with ROI/payback-based node purchase and upgrades.
 - Persistent runtime snapshot written to `/data/runtime-state.txt`.
 
 ## Getting started
@@ -43,7 +44,7 @@ run main.js
 Expected tail output (every ~30s by default):
 
 ```text
-[main] hosts=... rooted=... newRoot=... copied=... mode=... target=... fleet=... launchedScripts=... launchedThreads=... droppedThreads=... utilization=...%
+[main] hosts=... rooted=... newRoot=... copied=... mode=... target=... fleet=... hacknet=... launchedScripts=... launchedThreads=... droppedThreads=... utilization=...%
 ```
 
 ## Config
@@ -60,6 +61,9 @@ Tune values in `config/defaults.js`:
 - `phase4.purchasedServers.minRamGb`
 - `phase4.purchasedServers.homeRamFraction`
 - `phase4.purchasedServers.moneyReserve`
+- `phase4.hacknet.enabled`
+- `phase4.hacknet.moneyReserve`
+- `phase4.hacknet.maxPaybackSeconds`
 - `starterTargets`
 
 ## Personal utility scripts
@@ -76,7 +80,7 @@ Tune values in `config/defaults.js`:
 
 ## Next phase
 
-Phase 4 continuation will add:
+Next up:
 
 - Per-target queue balancing and anti-overlap locks across multiple concurrent targets
 - Throughput-aware scheduling cadence tuning
