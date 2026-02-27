@@ -91,7 +91,11 @@ export async function main(ns) {
 
     let contractSummary = { discovered: 0, solved: 0, failed: 0, skipped: 0 };
     if (CONFIG.contracts.enabled && now - lastContractSweepAt >= CONFIG.contracts.intervalMs) {
-      contractSummary = solveContracts(ns, net.hosts, contractState, logger);
+      try {
+        contractSummary = solveContracts(ns, net.hosts, contractState, logger);
+      } catch (error) {
+        logger.error("contract sweep failed: " + String(error));
+      }
       lastContractSweepAt = now;
     }
 
