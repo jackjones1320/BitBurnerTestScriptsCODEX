@@ -62,6 +62,18 @@ Tune values in `config/defaults.js`:
 - `phase4.purchasedServers.moneyReserve`
 - `starterTargets`
 
+## Personal utility scripts
+
+- `run scripts/personal-connect-list.js`
+  - Prints all currently connectable servers (by your hacking level), their route from `home`, and opens a clickable picker via `ns.prompt`.
+  - If you have Singularity access, the selected host is auto-connected.
+- `run scripts/personal-backdoor-all.js`
+  - Walks every rooted + hackable host that does not yet have a backdoor installed and installs backdoors automatically.
+  - Requires Singularity access (Source-File 4).
+- `run scripts/personal-target-explain.js [topN]`
+  - Prints the target-scoring formula and a breakdown for the top ranked targets so you can see why a target wins.
+  - Also shows where `n00dles` currently stands.
+
 ## Next phase
 
 Phase 4 continuation will add:
