@@ -19,10 +19,11 @@ function getStarterTarget(ns) {
 function bbMainGetRunnerHosts(ns, discovered) {
   return discovered.filter((host) => {
     if (!ns.hasRootAccess(host)) return false;
-    if (ns.getServerMaxRam(host) <= 0) return false;
+    const maxRam = ns.getServerMaxRam(host);
+    if (maxRam <= 0) return false;
 
     if (host === "home") {
-      const free = ns.getServerMaxRam(host) - ns.getServerUsedRam(host);
+      const free = maxRam - ns.getServerUsedRam(host);
       return free > CONFIG.homeReserveGb;
     }
 
