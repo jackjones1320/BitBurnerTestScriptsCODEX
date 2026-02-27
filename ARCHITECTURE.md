@@ -61,6 +61,16 @@ This document defines the final target architecture for an end-to-end autonomous
   dryrun-plan.js                 # Offline sanity checks for timing/thread math
 ```
 
+## 8GB bootstrap path (implemented)
+
+To support fresh installs where `home` only has 8GB RAM, startup is split:
+
+- `starting/starter.js` handles discovery/rooting and deploys the sibling `early-worker.js` (with `/starting` fallback) across rooted hosts.
+- Starter validates worker RAM cost before deployment to avoid invalid infinite-thread launch attempts when the worker path is missing.
+- Deployment is remote-first (non-home hosts before `home`) so worker capacity appears even when local RAM is tight.
+- `home` keeps a small reserve (`2GB`) to preserve terminal responsiveness.
+- Once home RAM is upgraded, hand off control to `main.js` for full orchestration.
+
 ## Module responsibilities
 
 ### 1) Entrypoint / Control Plane
@@ -76,7 +86,7 @@ This document defines the final target architecture for an end-to-end autonomous
 
 - `net/scan.js`: BFS from `home`, maintains adjacency map and metadata cache.
 - `net/access.js`: checks required ports, opens what is possible, then nukes.
-- `net/deploy.js`: copies worker scripts and starts assigned jobs.
+- `net/deploy.js`: asynchronously copies worker scripts and starts assigned jobs (awaits SCP completion before launch attempts).
 
 ### 3) Hacking Core
 
