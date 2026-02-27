@@ -16,7 +16,7 @@ function getStarterTarget(ns) {
   return "n00dles";
 }
 
-function getRunnerHosts(ns, discovered) {
+function bbMainGetRunnerHosts(ns, discovered) {
   return discovered.filter((host) => {
     if (!ns.hasRootAccess(host)) return false;
     const maxRam = ns.getServerMaxRam(host);
@@ -130,14 +130,14 @@ export async function main(ns) {
     const copiedTo = await deployWorkersFleet(ns, runners, CONFIG.deploy.workerScripts);
     const starterTarget = getStarterTarget(ns);
 
-    writeState(ns, {
+    bbMainWriteState(ns, {
       discoveredHosts: net.hosts.length,
       rootedHosts: net.hosts.filter((h) => ns.hasRootAccess(h)).length,
       runners: runners.length,
       starterTarget,
     });
 
-    if (shouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
+    if (bbMainShouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
       lastStatusAt = now;
       info(
         ns,
