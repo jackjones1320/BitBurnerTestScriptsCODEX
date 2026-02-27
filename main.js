@@ -1,10 +1,10 @@
-import { CONFIG } from "/config/defaults.js";
-import { rootMany } from "/lib/net/access.js";
-import { deployWorkersFleet } from "/lib/net/deploy.js";
-import { scanAllServers } from "/lib/net/scan.js";
-import { createLogger } from "/lib/runtime/logger.js";
-import { writeState } from "/lib/runtime/state.js";
-import { shouldEmit, sleepSafe } from "/lib/runtime/timing.js";
+import { CONFIG } from "./config/defaults.js";
+import { rootMany } from "./lib/net/access.js";
+import { deployWorkersFleet } from "./lib/net/deploy.js";
+import { scanAllServers } from "./lib/net/scan.js";
+import { createLogger } from "./lib/runtime/logger.js";
+import { writeState } from "./lib/runtime/state.js";
+import { shouldEmit, sleepSafe } from "./lib/runtime/timing.js";
 
 function getStarterTarget(ns) {
   for (const target of CONFIG.starterTargets) {
