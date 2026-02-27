@@ -26,9 +26,29 @@ function getRunnerHosts(ns, discovered) {
   });
 }
 
-function pickTarget(rankedTargets) {
+function scoreMapFromRanked(rankedTargets) {
+  const byHost = new Map();
+  for (const entry of rankedTargets) {
+    byHost.set(entry.host, entry.score);
+  }
+  return byHost;
+}
+
+function pickTarget(rankedTargets, currentTarget, currentSinceMs, nowMs) {
   if (rankedTargets.length === 0) return null;
-  return rankedTargets[0].host;
+
+  const top = rankedTargets[0];
+  if (!currentTarget || currentSinceMs <= 0) return top.host;
+
+  const scores = scoreMapFromRanked(rankedTargets);
+  const currentScore = scores.get(currentTarget);
+  if (!Number.isFinite(currentScore) || currentScore <= 0) return top.host;
+
+  const heldForMs = nowMs - currentSinceMs;
+  if (heldForMs >= CONFIG.phase2.targetStickMs) return top.host;
+
+  const requiredLead = currentScore * (1 + CONFIG.phase2.switchLeadPct);
+  return top.score >= requiredLead ? top.host : currentTarget;
 }
 
 /** @param {NS} ns */
@@ -39,18 +59,39 @@ export async function main(ns) {
 
   let lastStatusAt = 0;
   let nextDispatchAt = 0;
+  let activeTarget = null;
+  let activeTargetSince = 0;
+  let lastFullDeployAt = 0;
+  const deployedHosts = new Set(["home"]);
 
   while (true) {
     const now = Date.now();
     const net = scanAllServers(ns);
     const rootedNow = rootMany(ns, net.hosts, CONFIG.rooting.crackers);
     const runnerHosts = getRunnerHosts(ns, net.hosts);
-    const copiedTo = await deployWorkersFleet(ns, runnerHosts, CONFIG.deploy.workerScripts);
+
+    const fullSyncDue = now - lastFullDeployAt >= CONFIG.deploy.syncIntervalMs;
+    const newlyRooted = new Set(rootedNow);
+    const copiedTo = await deployWorkersFleet(ns, runnerHosts, CONFIG.deploy.workerScripts, {
+      shouldCopy: (host) => fullSyncDue || !deployedHosts.has(host) || newlyRooted.has(host),
+    });
+
+    if (fullSyncDue) {
+      lastFullDeployAt = now;
+      for (const host of runnerHosts) deployedHosts.add(host);
+    } else {
+      for (const host of rootedNow) deployedHosts.add(host);
+    }
+
     const fleetAction = managePurchasedServers(ns, CONFIG.phase4.purchasedServers);
     const hacknetAction = manageHacknet(ns, CONFIG.phase4.hacknet);
 
     const rankedTargets = rankTargets(ns, net.hosts, CONFIG.phase2.targetPoolSize);
-    const target = pickTarget(rankedTargets);
+    const target = pickTarget(rankedTargets, activeTarget, activeTargetSince, now);
+    if (target !== activeTarget) {
+      activeTarget = target;
+      activeTargetSince = now;
+    }
 
     let mode = "idle";
     let launched = { launchedScripts: 0, launchedThreads: 0, requestedThreads: 0, droppedThreads: 0, utilization: 1 };
@@ -64,7 +105,8 @@ export async function main(ns) {
         mode = "prep";
         launched = executeJobSet(ns, runnerHosts, prep.jobs, target, `prep:${now}`, CONFIG.homeReserveGb);
         const prepTime = Math.max(ns.getWeakenTime(target), ns.getGrowTime(target));
-        nextDispatchAt = now + Math.max(CONFIG.loopIntervalMs, prepTime + 100);
+        const prepCadence = launched.droppedThreads > 0 ? CONFIG.phase3.dispatchCadenceMs : Math.max(CONFIG.loopIntervalMs, prepTime + 100);
+        nextDispatchAt = now + prepCadence;
       } else {
         mode = "batch";
         plan = createBatchPlan(ns, target, CONFIG.phase3, now);
@@ -75,7 +117,7 @@ export async function main(ns) {
             delayMs: step.delayMs,
             tag: step.type,
           }));
-          launched = executeJobSet(ns, runnerHosts, jobs, target, `batch:${now}`, CONFIG.homeReserveGb);
+          launched = executeJobSet(ns, runnerHosts, jobs, target, `batch:${now}`, CONFIG.homeReserveGb, { strict: true });
         }
         nextDispatchAt = now + CONFIG.phase3.dispatchCadenceMs;
       }

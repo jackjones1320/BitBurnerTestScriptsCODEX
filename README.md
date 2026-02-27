@@ -6,10 +6,10 @@ Phase 4 fleet scaling has been started with purchased server management and a sm
 
 - Network BFS discovery from `home`.
 - Root automation using whichever port crackers are currently present.
-- Fleet deployment for worker scripts (`hack/grow/weaken`).
+- Fleet deployment for worker scripts (`hack/grow/weaken`) with incremental sync to avoid repeated full SCP every loop.
 - 8GB-safe bootstrap path (`starter/starter.js`) that pushes `starter/early-worker.js` to rooted servers first.
 - Boot loop in `main.js` with periodic status logging and automatic `/scripts/worker-{hack,grow,weaken}.js` launch across runner hosts.
-- Automatic target scoring/selection with a rotating top target pool.
+- Automatic target scoring/selection with stickiness to reduce target thrashing when scores are close.
 - Target prep cycle that converges security and money before entering batch mode.
 - Deterministic HGWW batch plan creation with collision-safe landing offsets.
 - Smarter multi-host dispatcher with job-priority sorting, best-fit thread placement, and dropped-thread telemetry.
@@ -57,6 +57,8 @@ Tune values in `config/defaults.js`:
 - `phase2.targetPoolSize`
 - `phase2.minSecurityBuffer`
 - `phase2.growMoneyThreshold`
+- `phase2.targetStickMs`
+- `phase2.switchLeadPct`
 - `phase4.purchasedServers.enabled`
 - `phase4.purchasedServers.minRamGb`
 - `phase4.purchasedServers.homeRamFraction`
@@ -64,6 +66,7 @@ Tune values in `config/defaults.js`:
 - `phase4.hacknet.enabled`
 - `phase4.hacknet.moneyReserve`
 - `phase4.hacknet.maxPaybackSeconds`
+- `deploy.syncIntervalMs`
 - `starterTargets`
 
 ## Personal utility scripts
