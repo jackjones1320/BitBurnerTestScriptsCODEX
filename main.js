@@ -9,15 +9,6 @@ const CONFIG = {
       "/scripts/worker-weaken.js",
     ],
   },
-  rooting: {
-    crackers: [
-      { file: "BruteSSH.exe", fn: "brutessh" },
-      { file: "FTPCrack.exe", fn: "ftpcrack" },
-      { file: "relaySMTP.exe", fn: "relaysmtp" },
-      { file: "HTTPWorm.exe", fn: "httpworm" },
-      { file: "SQLInject.exe", fn: "sqlinject" },
-    ],
-  },
   starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
 };
 
@@ -72,13 +63,24 @@ function bbMainTryRoot(ns, host) {
   if (host === "home" || ns.hasRootAccess(host)) return true;
 
   let opened = 0;
-  for (const cracker of CONFIG.rooting.crackers) {
-    if (!ns.fileExists(cracker.file, "home")) continue;
-
-    const fn = ns[cracker.fn];
-    if (typeof fn !== "function") continue;
-
-    fn(host);
+  if (ns.fileExists("BruteSSH.exe", "home")) {
+    ns.brutessh(host);
+    opened += 1;
+  }
+  if (ns.fileExists("FTPCrack.exe", "home")) {
+    ns.ftpcrack(host);
+    opened += 1;
+  }
+  if (ns.fileExists("relaySMTP.exe", "home")) {
+    ns.relaysmtp(host);
+    opened += 1;
+  }
+  if (ns.fileExists("HTTPWorm.exe", "home")) {
+    ns.httpworm(host);
+    opened += 1;
+  }
+  if (ns.fileExists("SQLInject.exe", "home")) {
+    ns.sqlinject(host);
     opened += 1;
   }
 
