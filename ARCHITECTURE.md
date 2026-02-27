@@ -136,7 +136,7 @@ To support fresh installs where `home` only has 8GB RAM, startup is split:
 3. **Phase 3: Prep + deterministic batching**
    - prep convergence, HGWW planner, precise delay math, queueing batches.
 4. **Phase 4: Fleet scaling**
-   - purchased server automation and smarter thread allocator.
+   - purchased server automation, hacknet ROI automation, and smarter thread allocator.
 5. **Phase 5: Late game systems**
    - factions/augs, gang, corp, sleeves modules and integration.
 6. **Phase 6: polish**

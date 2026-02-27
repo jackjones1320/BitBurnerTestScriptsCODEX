@@ -42,6 +42,11 @@ export const CONFIG = {
       homeRamFraction: 0.5,
       moneyReserve: 20_000_000,
     },
+    hacknet: {
+      enabled: true,
+      moneyReserve: 5_000_000,
+      maxPaybackSeconds: 3 * 60 * 60,
+    },
   },
   starterTargets: ["n00dles", "foodnstuff", "sigma-cosmetics"],
 };
