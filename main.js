@@ -3,6 +3,7 @@ import { createBatchPlan } from "./lib/hack/batchPlan.js";
 import { buildPrepJobs, getPrepState } from "./lib/hack/prep.js";
 import { rankTargets } from "./lib/hack/score.js";
 import { executeJobSet } from "./lib/hack/scheduler.js";
+import { manageHacknet } from "./lib/hw/hacknet.js";
 import { managePurchasedServers } from "./lib/hw/servers.js";
 import { rootMany } from "./lib/net/access.js";
 import { deployWorkersFleet } from "./lib/net/deploy.js";
@@ -46,6 +47,7 @@ export async function main(ns) {
     const runnerHosts = getRunnerHosts(ns, net.hosts);
     const copiedTo = await deployWorkersFleet(ns, runnerHosts, CONFIG.deploy.workerScripts);
     const fleetAction = managePurchasedServers(ns, CONFIG.phase4.purchasedServers);
+    const hacknetAction = manageHacknet(ns, CONFIG.phase4.hacknet);
 
     const rankedTargets = rankTargets(ns, net.hosts, CONFIG.phase2.targetPoolSize);
     const target = pickTarget(rankedTargets);
@@ -95,6 +97,7 @@ export async function main(ns) {
       droppedThreads: launched.droppedThreads,
       threadUtilization: Number((launched.utilization * 100).toFixed(1)),
       fleetAction,
+      hacknetAction,
       nextDispatchAt,
       lastBatchEndsAt: plan?.endsAt ?? null,
     });
@@ -106,7 +109,7 @@ export async function main(ns) {
         : "money=0/0 sec=0/0";
       logger.info(
         `hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
-          `newRoot=${rootedNow.length} copied=${copiedTo} mode=${mode} target=${target ?? "none"} fleet=${fleetAction.action} ` +
+          `newRoot=${rootedNow.length} copied=${copiedTo} mode=${mode} target=${target ?? "none"} fleet=${fleetAction.action} hacknet=${hacknetAction.action} ` +
           `${status} launchedScripts=${launched.launchedScripts} launchedThreads=${launched.launchedThreads} ` +
           `droppedThreads=${launched.droppedThreads} utilization=${(launched.utilization * 100).toFixed(1)}%`,
       );
