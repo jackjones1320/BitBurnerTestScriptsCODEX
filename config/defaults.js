@@ -13,6 +13,10 @@ export const CONFIG = {
     ],
     syncIntervalMs: 120_000,
   },
+  contracts: {
+    enabled: true,
+    intervalMs: 20_000,
+  },
   rooting: {
     // All stock port openers Bitburner can provide over progression.
     crackers: [
