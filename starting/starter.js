@@ -59,13 +59,26 @@ function pickTarget(ns, hosts) {
   return best;
 }
 
-function deploy(ns, hosts, target) {
+function sortRunnerHosts(ns, hosts) {
+  return [...hosts].sort((a, b) => {
+    if (a === "home" && b !== "home") return 1;
+    if (b === "home" && a !== "home") return -1;
+
+    const freeA = ns.getServerMaxRam(a) - ns.getServerUsedRam(a);
+    const freeB = ns.getServerMaxRam(b) - ns.getServerUsedRam(b);
+    return freeB - freeA;
+  });
+}
+
+async function deploy(ns, hosts, target) {
   const ramPerThread = ns.getScriptRam(WORKER, "home");
   let threads = 0;
 
-  for (const host of hosts) {
+  for (const host of sortRunnerHosts(ns, hosts)) {
     if (!ns.hasRootAccess(host)) continue;
-    if (!ns.scp(WORKER, host, "home")) continue;
+
+    const copied = host === "home" ? true : await ns.scp(WORKER, host, "home");
+    if (!copied) continue;
 
     const max = ns.getServerMaxRam(host);
     const used = ns.getServerUsedRam(host);
@@ -97,7 +110,7 @@ export async function main(ns) {
     }
 
     const target = pickTarget(ns, hosts);
-    const totalThreads = deploy(ns, hosts, target);
+    const totalThreads = await deploy(ns, hosts, target);
 
     ns.clearLog();
     ns.print(`[starter] hosts=${hosts.length} newRoots=${newRoots} target=${target} threads=${totalThreads}`);
