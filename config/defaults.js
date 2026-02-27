@@ -11,6 +11,7 @@ export const CONFIG = {
       "/scripts/worker-grow.js",
       "/scripts/worker-weaken.js",
     ],
+    syncIntervalMs: 120_000,
   },
   rooting: {
     // All stock port openers Bitburner can provide over progression.
@@ -26,6 +27,8 @@ export const CONFIG = {
     targetPoolSize: 5,
     minSecurityBuffer: 5,
     growMoneyThreshold: 0.75,
+    targetStickMs: 60_000,
+    switchLeadPct: 0.15,
   },
   phase3: {
     securityTolerance: 0.5,
