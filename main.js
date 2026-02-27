@@ -3,6 +3,7 @@ import { createBatchPlan } from "./lib/hack/batchPlan.js";
 import { buildPrepJobs, getPrepState } from "./lib/hack/prep.js";
 import { rankTargets } from "./lib/hack/score.js";
 import { executeJobSet } from "./lib/hack/scheduler.js";
+import { solveContracts } from "./lib/contracts/automation.js";
 import { manageHacknet } from "./lib/hw/hacknet.js";
 import { managePurchasedServers } from "./lib/hw/servers.js";
 import { rootMany } from "./lib/net/access.js";
@@ -58,11 +59,13 @@ export async function main(ns) {
   const logger = createLogger(ns, "main");
 
   let lastStatusAt = 0;
+  let lastContractSweepAt = 0;
   let nextDispatchAt = 0;
   let activeTarget = null;
   let activeTargetSince = 0;
   let lastFullDeployAt = 0;
   const deployedHosts = new Set(["home"]);
+  const contractState = { attempted: new Set() };
 
   while (true) {
     const now = Date.now();
@@ -85,6 +88,12 @@ export async function main(ns) {
 
     const fleetAction = managePurchasedServers(ns, CONFIG.phase4.purchasedServers);
     const hacknetAction = manageHacknet(ns, CONFIG.phase4.hacknet);
+
+    let contractSummary = { discovered: 0, solved: 0, failed: 0, skipped: 0 };
+    if (CONFIG.contracts.enabled && now - lastContractSweepAt >= CONFIG.contracts.intervalMs) {
+      contractSummary = solveContracts(ns, net.hosts, contractState, logger);
+      lastContractSweepAt = now;
+    }
 
     const rankedTargets = rankTargets(ns, net.hosts, CONFIG.phase2.targetPoolSize);
     const target = pickTarget(rankedTargets, activeTarget, activeTargetSince, now);
@@ -140,6 +149,7 @@ export async function main(ns) {
       threadUtilization: Number((launched.utilization * 100).toFixed(1)),
       fleetAction,
       hacknetAction,
+      contracts: contractSummary,
       nextDispatchAt,
       lastBatchEndsAt: plan?.endsAt ?? null,
     });
@@ -152,7 +162,8 @@ export async function main(ns) {
       logger.info(
         `hosts=${net.hosts.length} rooted=${net.hosts.filter((h) => ns.hasRootAccess(h)).length} ` +
           `newRoot=${rootedNow.length} copied=${copiedTo} mode=${mode} target=${target ?? "none"} fleet=${fleetAction.action} hacknet=${hacknetAction.action} ` +
-          `${status} launchedScripts=${launched.launchedScripts} launchedThreads=${launched.launchedThreads} ` +
+          `contracts(s/f/k)=${contractSummary.solved}/${contractSummary.failed}/${contractSummary.skipped} ${status} ` +
+          `launchedScripts=${launched.launchedScripts} launchedThreads=${launched.launchedThreads} ` +
           `droppedThreads=${launched.droppedThreads} utilization=${(launched.utilization * 100).toFixed(1)}%`,
       );
     }
