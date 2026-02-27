@@ -16,6 +16,7 @@ Phase 4 fleet scaling has been started with purchased server management and a sm
 - Purchased server lifecycle automation (buy and replace weakest when affordable) with conservative money reserve and spend notifications.
 - Hacknet automation with ROI/payback-based node purchase and upgrades.
 - Persistent runtime snapshot written to `/data/runtime-state.txt`.
+- Automatic coding contract sweeps with built-in solvers for common contract types.
 
 ## Getting started
 
@@ -67,6 +68,8 @@ Tune values in `config/defaults.js`:
 - `phase4.hacknet.moneyReserve`
 - `phase4.hacknet.maxPaybackSeconds`
 - `deploy.syncIntervalMs`
+- `contracts.enabled`
+- `contracts.intervalMs`
 - `starterTargets`
 
 ## Personal utility scripts
