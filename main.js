@@ -163,6 +163,7 @@ export async function main(ns) {
     let prep = null;
     let plan = null;
     let shareSummary = { launchedScripts: 0, launchedThreads: 0, faction: null, reason: "none" };
+    let shareDiagnostics = "not-evaluated";
 
     const shareActive = CONFIG.sharing.enabled && now < shareUntilAt;
     if (shareActive) mode = "share";
@@ -200,35 +201,57 @@ export async function main(ns) {
 
     const prepState = target ? getPrepState(ns, target, CONFIG.phase3) : null;
 
+    const shareDurationMs = Math.min(CONFIG.sharing.windowMs, Math.max(0, nextDispatchAt - now));
+
     const shareEligible =
       CONFIG.sharing.enabled &&
       !shareActive &&
       target &&
       prepState?.isPrepped === true &&
       now < nextDispatchAt &&
-      nextDispatchAt - now >= CONFIG.sharing.windowMs;
+      shareDurationMs > 0;
+
+    if (!CONFIG.sharing.enabled) {
+      shareDiagnostics = "sharing-disabled";
+    } else if (shareActive) {
+      shareDiagnostics = "share-window-active";
+    } else if (!target) {
+      shareDiagnostics = "no-target";
+    } else if (prepState?.isPrepped !== true) {
+      shareDiagnostics = "target-not-prepped";
+    } else if (now >= nextDispatchAt) {
+      shareDiagnostics = "dispatch-due-now";
+    } else if (shareDurationMs <= 0) {
+      shareDiagnostics = "no-gap-before-dispatch";
+    } else {
+      shareDiagnostics = `eligible gapMs=${shareDurationMs}`;
+    }
 
     if (shareEligible) {
       const picked = pickShareFaction(ns, shareState);
       shareState = picked.state;
 
-      let canShare = false;
-      if (picked.reason === "current-work") {
-        canShare = true;
-      } else if (picked.faction) {
-        canShare = ensureFactionWork(ns, picked.faction);
+      // Sharing should still consume idle RAM even when we can't steer faction work
+      // (e.g. no Singularity access). Faction work assignment is best-effort only.
+      let canShare = true;
+      if (picked.faction && picked.reason !== "current-work") {
+        canShare = ensureFactionWork(ns, picked.faction) || canShare;
       }
 
       if (canShare) {
         const launchedShare = launchShareWindow(ns, runnerHosts, {
           homeReserveGb: CONFIG.homeReserveGb,
-          durationMs: CONFIG.sharing.windowMs,
+          durationMs: shareDurationMs,
           tag: `share:${now}:${picked.faction}`,
+          debug: CONFIG.sharing.debugLogs,
         });
         if (launchedShare.launchedThreads > 0) {
-          shareUntilAt = now + CONFIG.sharing.windowMs;
+          shareUntilAt = now + shareDurationMs;
           mode = "share";
           activeShareSummary = { ...launchedShare, faction: picked.faction, reason: picked.reason };
+          shareDiagnostics = `launched scripts=${launchedShare.launchedScripts} threads=${launchedShare.launchedThreads} gapMs=${shareDurationMs}`;
+        } else {
+          shareDiagnostics = `launch-attempted-no-threads gapMs=${shareDurationMs}`;
         }
         shareSummary = { ...launchedShare, faction: picked.faction, reason: picked.reason };
       }
@@ -265,6 +288,7 @@ export async function main(ns) {
       lastBatchEndsAt: plan?.endsAt ?? null,
       sharingUntilAt: shareUntilAt,
       sharingFaction: shareSummary.faction,
+      sharingDiagnostics: shareDiagnostics,
     });
 
     if (shouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
@@ -278,7 +302,7 @@ export async function main(ns) {
           `contracts(s/f/k)=${contractSummary.solved}/${contractSummary.failed}/${contractSummary.skipped} ${status} ` +
           `launchedScripts=${launched.launchedScripts} launchedThreads=${launched.launchedThreads} ` +
           `droppedThreads=${launched.droppedThreads} utilization=${(launched.utilization * 100).toFixed(1)}% ` +
-          `shareThreads=${shareSummary.launchedThreads} shareFaction=${shareSummary.faction ?? "none"}`,
+          `shareThreads=${shareSummary.launchedThreads} shareFaction=${shareSummary.faction ?? "none"} shareDiag=${shareDiagnostics}`,
       );
     }
 
