@@ -81,7 +81,7 @@ Tune values in `config/defaults.js`:
   - Walks every rooted + hackable host that does not yet have a backdoor installed and installs backdoors automatically.
   - Requires Singularity access (Source-File 4).
 - `run scripts/personal-target-explain.js [topN]`
-  - Prints the target-scoring formula and a breakdown for the top ranked targets so you can see why a target wins.
+  - Prints the target-scoring formula and a breakdown (including hack % per thread) for the top ranked targets so you can see why a target wins.
   - `serverGrowthStat` in that output is `ns.getServerGrowth(host)` (the server growth stat), not a max/current money growth ratio.
   - Also shows where `n00dles` currently stands.
 

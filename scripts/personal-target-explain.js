@@ -13,10 +13,11 @@ function describe(ns, host) {
   const serverGrowth = Math.max(1, ns.getServerGrowth(host));
   const minSec = Math.max(1, ns.getServerMinSecurityLevel(host));
   const chance = Math.max(0.01, ns.hackAnalyzeChance(host));
+  const hackPercentPerThread = Math.max(0.000001, ns.hackAnalyze(host));
   const hackTimeMs = Math.max(1, ns.getHackTime(host));
   const score = scoreTarget(ns, host);
 
-  return { host, maxMoney, serverGrowth, minSec, chance, hackTimeMs, score };
+  return { host, maxMoney, serverGrowth, minSec, chance, hackPercentPerThread, hackTimeMs, score };
 }
 
 /** @param {NS} ns */
@@ -28,8 +29,8 @@ export async function main(ns) {
   const ranked = rankTargets(ns, hosts, Math.max(1, limit));
 
   ns.tprint("Target scoring formula from lib/hack/score.js:");
-  ns.tprint("score = (maxMoney * serverGrowthStat * hackChance) / (minSec * (hackTimeMs / 1000)^0.75)");
-  ns.tprint("Higher is better. `serverGrowthStat` is the server's Bitburner growth stat (`ns.getServerGrowth`), and time is penalized with a softened exponent.");
+  ns.tprint("score = ((maxMoney * hackPercentPerThread * hackChance) / hackTimeSec) * sqrt(serverGrowthStat) / minSec");
+  ns.tprint("Higher is better. It estimates per-thread expected money/sec; growth is softened via sqrt(serverGrowthStat) so fast richer targets can beat n00dles sooner.");
   ns.tprint("-");
 
   for (let i = 0; i < ranked.length; i += 1) {
@@ -40,6 +41,7 @@ export async function main(ns) {
         `money=${fmtNumber(row.maxMoney).padStart(8)} ` +
         `growthStat=${String(row.serverGrowth).padStart(4)} ` +
         `chance=${(row.chance * 100).toFixed(1).padStart(6)}% ` +
+        `hackPct=${(row.hackPercentPerThread * 100).toFixed(3).padStart(7)}% ` +
         `minSec=${row.minSec.toFixed(1).padStart(5)} ` +
         `hackTime=${(row.hackTimeMs / 1000).toFixed(1).padStart(6)}s`,
     );
