@@ -50,12 +50,14 @@ function countRootedHosts(ns, hosts) {
   return rooted;
 }
 
-function getRunnerUtilization(ns, runnerHosts, homeReserveGb) {
+function getRunnerUtilization(ns, discoveredHosts, homeReserveGb) {
   let allocatableRam = 0;
   let usedRam = 0;
 
-  for (const host of runnerHosts) {
+  for (const host of discoveredHosts) {
     try {
+      if (!ns.hasRootAccess(host)) continue;
+
       const maxRam = ns.getServerMaxRam(host);
       if (!Number.isFinite(maxRam) || maxRam <= 0) continue;
 
@@ -240,7 +242,7 @@ export async function main(ns) {
       shareSummary = activeShareSummary;
     }
 
-    const runtimeUtilization = getRunnerUtilization(ns, runnerHosts, CONFIG.homeReserveGb);
+    const runtimeUtilization = getRunnerUtilization(ns, net.hosts, CONFIG.homeReserveGb);
     launched.utilization = runtimeUtilization;
 
     writeState(ns, {
