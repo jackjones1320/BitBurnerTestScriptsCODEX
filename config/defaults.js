@@ -10,6 +10,7 @@ export const CONFIG = {
       "/scripts/worker-hack.js",
       "/scripts/worker-grow.js",
       "/scripts/worker-weaken.js",
+      "/scripts/worker-share.js",
     ],
     syncIntervalMs: 120_000,
   },
@@ -26,6 +27,10 @@ export const CONFIG = {
       { file: "HTTPWorm.exe", fn: "httpworm" },
       { file: "SQLInject.exe", fn: "sqlinject" },
     ],
+  },
+  sharing: {
+    enabled: true,
+    windowMs: 10_000,
   },
   phase2: {
     targetPoolSize: 5,
