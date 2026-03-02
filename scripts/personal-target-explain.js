@@ -30,8 +30,8 @@ export async function main(ns) {
   const ranked = rankTargets(ns, hosts, Math.max(1, limit));
 
   ns.tprint("Target scoring formula from lib/hack/score.js:");
-  ns.tprint("score = ((maxMoney * hackPercentPerThread * hackChance) / hackTimeSec) * sqrt(serverGrowthStat) / minSec");
-  ns.tprint("Higher is better. It estimates per-thread expected money/sec; growth is softened via sqrt(serverGrowthStat) so fast richer targets can beat n00dles sooner.");
+  ns.tprint("score = (maxMoney * hackPercentPerThread * hackChance) / hackTimeMs");
+  ns.tprint("Higher is better. It follows the Formulas API expected-value-over-time pattern for cleaner target comparisons.");
   ns.tprint(`Using ${hasFormulas(ns) ? "Formulas.exe" : "built-in analyze APIs"} for hack chance/percent/time estimates.`);
   ns.tprint("-");
 
