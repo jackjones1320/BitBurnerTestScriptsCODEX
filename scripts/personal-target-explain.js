@@ -1,4 +1,5 @@
 import { rankTargets, scoreTarget } from "../lib/hack/score.js";
+import { getHackChance, getHackPercentPerThread, getHackTimeMs, hasFormulas } from "../lib/hack/formulas.js";
 import { scanAllServers } from "../lib/net/scan.js";
 
 function fmtNumber(value) {
@@ -12,9 +13,9 @@ function describe(ns, host) {
   const maxMoney = ns.getServerMaxMoney(host);
   const serverGrowth = Math.max(1, ns.getServerGrowth(host));
   const minSec = Math.max(1, ns.getServerMinSecurityLevel(host));
-  const chance = Math.max(0.01, ns.hackAnalyzeChance(host));
-  const hackPercentPerThread = Math.max(0.000001, ns.hackAnalyze(host));
-  const hackTimeMs = Math.max(1, ns.getHackTime(host));
+  const chance = getHackChance(ns, host);
+  const hackPercentPerThread = getHackPercentPerThread(ns, host);
+  const hackTimeMs = getHackTimeMs(ns, host);
   const score = scoreTarget(ns, host);
 
   return { host, maxMoney, serverGrowth, minSec, chance, hackPercentPerThread, hackTimeMs, score };
@@ -31,6 +32,7 @@ export async function main(ns) {
   ns.tprint("Target scoring formula from lib/hack/score.js:");
   ns.tprint("score = ((maxMoney * hackPercentPerThread * hackChance) / hackTimeSec) * sqrt(serverGrowthStat) / minSec");
   ns.tprint("Higher is better. It estimates per-thread expected money/sec; growth is softened via sqrt(serverGrowthStat) so fast richer targets can beat n00dles sooner.");
+  ns.tprint(`Using ${hasFormulas(ns) ? "Formulas.exe" : "built-in analyze APIs"} for hack chance/percent/time estimates.`);
   ns.tprint("-");
 
   for (let i = 0; i < ranked.length; i += 1) {
