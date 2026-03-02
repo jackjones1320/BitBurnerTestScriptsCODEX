@@ -76,6 +76,7 @@ Tune values in `config/defaults.js`:
 
 - `run git-pull.js`
   - Pulls every `.js` file from `jackjones1320/BitBurnerTestScriptsCODEX` on `main` directly into Bitburner.
+  - Logs which files were added, updated, or unchanged after sync.
 
 - `run scripts/personal-connect-list.js`
   - Prints all currently connectable servers (by your hacking level), their route from `home`, and opens a clickable picker via `ns.prompt`.
