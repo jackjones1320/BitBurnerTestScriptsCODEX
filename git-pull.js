@@ -1,19 +1,12 @@
+const REPO_OWNER = "jackjones1320";
+const REPO_NAME = "BitBurnerTestScriptsCODEX";
+const REPO_BRANCH = "main";
+
 /** @param {NS} ns */
 export async function main(ns) {
   ns.disableLog("ALL");
 
-  const [repoArg, branchArg = "main"] = ns.args.map((v) => String(v ?? "").trim());
-  const repo = repoArg || "";
-  const branch = branchArg || "main";
-
-  if (!repo || !repo.includes("/")) {
-    ns.tprint("Usage: run git-pull.js <owner/repo> [branch=main]");
-    ns.tprint("Example: run git-pull.js your-name/BitBurnerTestScripts main");
-    return;
-  }
-
-  const [owner, name] = repo.split("/");
-  const treeUrl = `https://api.github.com/repos/${owner}/${name}/git/trees/${branch}?recursive=1`;
+  const treeUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${REPO_BRANCH}?recursive=1`;
   const treeOk = await ns.wget(treeUrl, "/Temp/git-tree.json");
 
   if (!treeOk) {
@@ -50,7 +43,7 @@ export async function main(ns) {
   const cacheBuster = Date.now();
 
   for (const file of files) {
-    const rawUrl = `https://raw.githubusercontent.com/${owner}/${name}/${branch}/${file}?v=${cacheBuster}`;
+    const rawUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/${file}?v=${cacheBuster}`;
     const ok = await ns.wget(rawUrl, `/${file}`);
 
     if (ok) {
@@ -64,7 +57,9 @@ export async function main(ns) {
     await ns.sleep(20);
   }
 
-  ns.tprint(`Git pull complete. Downloaded ${success}/${files.length} .js files from ${repo}@${branch}.`);
+  ns.tprint(
+    `Git pull complete. Downloaded ${success}/${files.length} .js files from ${REPO_OWNER}/${REPO_NAME}@${REPO_BRANCH}.`,
+  );
   if (failed > 0) {
     ns.tprint(`Failed files: ${failed}. Check script logs for details.`);
   }
