@@ -50,6 +50,29 @@ function countRootedHosts(ns, hosts) {
   return rooted;
 }
 
+function getRunnerUtilization(ns, runnerHosts, homeReserveGb) {
+  let allocatableRam = 0;
+  let usedRam = 0;
+
+  for (const host of runnerHosts) {
+    try {
+      const maxRam = ns.getServerMaxRam(host);
+      if (!Number.isFinite(maxRam) || maxRam <= 0) continue;
+
+      const reserve = host === "home" ? homeReserveGb : 0;
+      const hostAllocatable = Math.max(0, maxRam - reserve);
+      if (hostAllocatable <= 0) continue;
+
+      allocatableRam += hostAllocatable;
+      usedRam += Math.min(hostAllocatable, ns.getServerUsedRam(host));
+    } catch {
+      continue;
+    }
+  }
+
+  return allocatableRam > 0 ? usedRam / allocatableRam : 0;
+}
+
 function scoreMapFromRanked(rankedTargets) {
   const byHost = new Map();
   for (const entry of rankedTargets) {
@@ -89,6 +112,7 @@ export async function main(ns) {
   let lastFullDeployAt = 0;
   let shareUntilAt = 0;
   let shareState = { rotation: 0 };
+  let activeShareSummary = { launchedScripts: 0, launchedThreads: 0, faction: null, reason: "none" };
   const deployedHosts = new Set(["home"]);
   const contractState = { attempted: new Set() };
 
@@ -132,6 +156,7 @@ export async function main(ns) {
     }
 
     let mode = "idle";
+    let dispatched = false;
     let launched = { launchedScripts: 0, launchedThreads: 0, requestedThreads: 0, droppedThreads: 0, utilization: 0 };
     let prep = null;
     let plan = null;
@@ -139,12 +164,17 @@ export async function main(ns) {
 
     const shareActive = CONFIG.sharing.enabled && now < shareUntilAt;
     if (shareActive) mode = "share";
+    if (!shareActive && shareUntilAt > 0 && now >= shareUntilAt) {
+      shareUntilAt = 0;
+      activeShareSummary = { launchedScripts: 0, launchedThreads: 0, faction: null, reason: "none" };
+    }
 
     if (target && now >= nextDispatchAt && !shareActive) {
       prep = buildPrepJobs(ns, target, CONFIG.phase3);
 
       if (prep.jobs.length > 0) {
         mode = "prep";
+        dispatched = true;
         launched = executeJobSet(ns, runnerHosts, prep.jobs, target, `prep:${now}`, CONFIG.homeReserveGb);
         const prepTime = Math.max(ns.getWeakenTime(target), ns.getGrowTime(target));
         const prepCadence = launched.droppedThreads > 0 ? CONFIG.phase3.dispatchCadenceMs : Math.max(CONFIG.loopIntervalMs, prepTime + 100);
@@ -160,6 +190,7 @@ export async function main(ns) {
             tag: step.type,
           }));
           launched = executeJobSet(ns, runnerHosts, jobs, target, `batch:${now}`, CONFIG.homeReserveGb, { strict: true });
+          dispatched = true;
         }
         nextDispatchAt = now + CONFIG.phase3.dispatchCadenceMs;
       }
@@ -195,10 +226,22 @@ export async function main(ns) {
         if (launchedShare.launchedThreads > 0) {
           shareUntilAt = now + CONFIG.sharing.windowMs;
           mode = "share";
+          activeShareSummary = { ...launchedShare, faction: picked.faction, reason: picked.reason };
         }
         shareSummary = { ...launchedShare, faction: picked.faction, reason: picked.reason };
       }
     }
+
+    if (mode !== "share" && !dispatched && target && now < nextDispatchAt && prepState) {
+      mode = prepState.isPrepped ? "batch-wait" : "prep";
+    }
+
+    if (mode === "share") {
+      shareSummary = activeShareSummary;
+    }
+
+    const runtimeUtilization = getRunnerUtilization(ns, runnerHosts, CONFIG.homeReserveGb);
+    launched.utilization = runtimeUtilization;
 
     writeState(ns, {
       discoveredHosts: net.hosts.length,
