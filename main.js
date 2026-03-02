@@ -241,9 +241,7 @@ export async function main(ns) {
     }
 
     const runtimeUtilization = getRunnerUtilization(ns, runnerHosts, CONFIG.homeReserveGb);
-    if (!dispatched) {
-      launched.utilization = runtimeUtilization;
-    }
+    launched.utilization = runtimeUtilization;
 
     writeState(ns, {
       discoveredHosts: net.hosts.length,
