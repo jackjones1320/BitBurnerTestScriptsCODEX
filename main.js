@@ -132,7 +132,7 @@ export async function main(ns) {
     }
 
     let mode = "idle";
-    let launched = { launchedScripts: 0, launchedThreads: 0, requestedThreads: 0, droppedThreads: 0, utilization: 1 };
+    let launched = { launchedScripts: 0, launchedThreads: 0, requestedThreads: 0, droppedThreads: 0, utilization: 0 };
     let prep = null;
     let plan = null;
     let shareSummary = { launchedScripts: 0, launchedThreads: 0, faction: null, reason: "none" };

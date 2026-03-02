@@ -72,6 +72,13 @@ Tune values in `config/defaults.js`:
 - `contracts.intervalMs`
 - `starterTargets`
 
+## Troubleshooting
+
+- **"Why is 16GB always reserved on `home`?"**
+  - This runner intentionally keeps `16GB` free on `home` by default via `CONFIG.homeReserveGb`.
+  - The allocator and host filter both treat that as untouchable headroom so your home machine is never fully packed.
+  - If you want the runner to use more (or less) of `home`, change `homeReserveGb` in `config/defaults.js`.
+
 ## Personal utility scripts
 
 - `run git-pull.js`
