@@ -31,6 +31,7 @@ export const CONFIG = {
   sharing: {
     enabled: true,
     windowMs: 10_000,
+    debugLogs: false,
   },
   phase2: {
     targetPoolSize: 5,
