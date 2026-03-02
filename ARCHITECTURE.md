@@ -90,7 +90,7 @@ To support fresh installs where `home` only has 8GB RAM, startup is split:
 
 ### 3) Hacking Core
 
-- `hack/score.js`: score targets using weighted money, security, growth, time, and hack chance.
+- `hack/score.js`: score targets using expected per-thread money/sec (maxMoney, hack %, chance, time), then applies security and softened growth weighting.
 - Equal-opportunity routing: top-N rotating pick and per-target cooldown to prevent one-target starvation.
 - `hack/prep.js`: converges target to min security and max money before batching.
 - `hack/batchPlan.js`: builds HGWW plans with strict offsets and shared landing window.
