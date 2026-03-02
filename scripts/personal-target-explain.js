@@ -28,8 +28,8 @@ export async function main(ns) {
   const ranked = rankTargets(ns, hosts, Math.max(1, limit));
 
   ns.tprint("Target scoring formula from lib/hack/score.js:");
-  ns.tprint("score = (maxMoney * growth * hackChance) / (minSec * (hackTimeMs / 1000))");
-  ns.tprint("Higher is better. It rewards rich/fast/easy targets and penalizes slow/high-security ones.");
+  ns.tprint("score = (maxMoney * growth * hackChance) / (minSec * (hackTimeMs / 1000)^0.75)");
+  ns.tprint("Higher is better. It rewards rich/fast/easy targets and still penalizes slow/high-security ones, but less harshly on hack time.");
   ns.tprint("-");
 
   for (let i = 0; i < ranked.length; i += 1) {
