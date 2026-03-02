@@ -1,6 +1,7 @@
 const REPO_OWNER = "jackjones1320";
 const REPO_NAME = "BitBurnerTestScriptsCODEX";
 const REPO_BRANCH = "main";
+const EXCLUDED_FILES = new Set(["git-pull.js"]);
 
 function toTempFile(path) {
   return `/Temp/git-pull-${path.replaceAll("/", "__")}`;
@@ -35,7 +36,7 @@ export async function main(ns) {
   const files = treeData.tree
     .filter((entry) => entry.type === "blob")
     .map((entry) => entry.path)
-    .filter((path) => path.endsWith(".js"));
+    .filter((path) => path.endsWith(".js") && !EXCLUDED_FILES.has(path));
 
   if (files.length === 0) {
     ns.tprint("No .js files found to download.");
