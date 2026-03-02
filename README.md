@@ -9,9 +9,9 @@ Phase 4 fleet scaling has been started with purchased server management and a sm
 - Fleet deployment for worker scripts (`hack/grow/weaken`) with incremental sync to avoid repeated full SCP every loop.
 - 8GB-safe bootstrap path (`starter/starter.js`) that pushes `starter/early-worker.js` to rooted servers first.
 - Boot loop in `main.js` with periodic status logging and automatic `/scripts/worker-{hack,grow,weaken}.js` launch across runner hosts.
-- Automatic target scoring/selection with stickiness to reduce target thrashing when scores are close.
+- Automatic target scoring/selection (expected value over hack time via Formulas API when available) with stickiness to reduce target thrashing when scores are close.
 - Target prep cycle that converges security and money before entering batch mode.
-- Deterministic HGWW batch plan creation with collision-safe landing offsets.
+- Deterministic HWGW batch timing derived from formulas weaken/hack/grow durations and collision-safe spacing.
 - Smarter multi-host dispatcher with job-priority sorting, best-fit thread placement, and dropped-thread telemetry.
 - Purchased server lifecycle automation (buy and replace weakest when affordable) with conservative money reserve and spend notifications.
 - Hacknet automation with ROI/payback-based node purchase and upgrades.
@@ -82,7 +82,6 @@ Tune values in `config/defaults.js`:
   - Requires Singularity access (Source-File 4).
 - `run scripts/personal-target-explain.js [topN]`
   - Prints the target-scoring formula and a breakdown (including hack % per thread) for the top ranked targets so you can see why a target wins.
-  - `serverGrowthStat` in that output is `ns.getServerGrowth(host)` (the server growth stat), not a max/current money growth ratio.
   - Also shows where `n00dles` currently stands.
 
 ## Next phase
