@@ -12,6 +12,7 @@ import { scanAllServers } from "./lib/net/scan.js";
 import { createLogger } from "./lib/runtime/logger.js";
 import { writeState } from "./lib/runtime/state.js";
 import { shouldEmit } from "./lib/runtime/timing.js";
+import { ensureFactionWork, launchShareWindow, pickShareFaction } from "./lib/factions/share.js";
 
 function getRunnerHosts(ns, discovered) {
   return discovered.filter((host) => {
@@ -86,6 +87,8 @@ export async function main(ns) {
   let activeTarget = null;
   let activeTargetSince = 0;
   let lastFullDeployAt = 0;
+  let shareUntilAt = 0;
+  let shareState = { rotation: 0 };
   const deployedHosts = new Set(["home"]);
   const contractState = { attempted: new Set() };
 
@@ -132,8 +135,12 @@ export async function main(ns) {
     let launched = { launchedScripts: 0, launchedThreads: 0, requestedThreads: 0, droppedThreads: 0, utilization: 1 };
     let prep = null;
     let plan = null;
+    let shareSummary = { launchedScripts: 0, launchedThreads: 0, faction: null, reason: "none" };
 
-    if (target && now >= nextDispatchAt) {
+    const shareActive = CONFIG.sharing.enabled && now < shareUntilAt;
+    if (shareActive) mode = "share";
+
+    if (target && now >= nextDispatchAt && !shareActive) {
       prep = buildPrepJobs(ns, target, CONFIG.phase3);
 
       if (prep.jobs.length > 0) {
@@ -160,6 +167,39 @@ export async function main(ns) {
 
     const prepState = target ? getPrepState(ns, target, CONFIG.phase3) : null;
 
+    const shareEligible =
+      CONFIG.sharing.enabled &&
+      !shareActive &&
+      target &&
+      prepState?.isPrepped === true &&
+      now < nextDispatchAt &&
+      nextDispatchAt - now >= CONFIG.sharing.windowMs;
+
+    if (shareEligible) {
+      const picked = pickShareFaction(ns, shareState);
+      shareState = picked.state;
+
+      let canShare = false;
+      if (picked.reason === "current-work") {
+        canShare = true;
+      } else if (picked.faction) {
+        canShare = ensureFactionWork(ns, picked.faction);
+      }
+
+      if (canShare) {
+        const launchedShare = launchShareWindow(ns, runnerHosts, {
+          homeReserveGb: CONFIG.homeReserveGb,
+          durationMs: CONFIG.sharing.windowMs,
+          tag: `share:${now}:${picked.faction}`,
+        });
+        if (launchedShare.launchedThreads > 0) {
+          shareUntilAt = now + CONFIG.sharing.windowMs;
+          mode = "share";
+        }
+        shareSummary = { ...launchedShare, faction: picked.faction, reason: picked.reason };
+      }
+    }
+
     writeState(ns, {
       discoveredHosts: net.hosts.length,
       rootedHosts: countRootedHosts(ns, net.hosts),
@@ -178,6 +218,8 @@ export async function main(ns) {
       contracts: contractSummary,
       nextDispatchAt,
       lastBatchEndsAt: plan?.endsAt ?? null,
+      sharingUntilAt: shareUntilAt,
+      sharingFaction: shareSummary.faction,
     });
 
     if (shouldEmit(now, lastStatusAt, CONFIG.statusIntervalMs)) {
@@ -190,7 +232,8 @@ export async function main(ns) {
           `newRoot=${rootedNow.length} copied=${copiedTo} mode=${mode} target=${target ?? "none"} fleet=${fleetAction.action} hacknet=${hacknetAction.action} ` +
           `contracts(s/f/k)=${contractSummary.solved}/${contractSummary.failed}/${contractSummary.skipped} ${status} ` +
           `launchedScripts=${launched.launchedScripts} launchedThreads=${launched.launchedThreads} ` +
-          `droppedThreads=${launched.droppedThreads} utilization=${(launched.utilization * 100).toFixed(1)}%`,
+          `droppedThreads=${launched.droppedThreads} utilization=${(launched.utilization * 100).toFixed(1)}% ` +
+          `shareThreads=${shareSummary.launchedThreads} shareFaction=${shareSummary.faction ?? "none"}`,
       );
     }
 
