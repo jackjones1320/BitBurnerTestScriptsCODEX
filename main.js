@@ -200,13 +200,15 @@ export async function main(ns) {
 
     const prepState = target ? getPrepState(ns, target, CONFIG.phase3) : null;
 
+    const shareDurationMs = Math.min(CONFIG.sharing.windowMs, Math.max(0, nextDispatchAt - now));
+
     const shareEligible =
       CONFIG.sharing.enabled &&
       !shareActive &&
       target &&
       prepState?.isPrepped === true &&
       now < nextDispatchAt &&
-      nextDispatchAt - now >= CONFIG.sharing.windowMs;
+      shareDurationMs > 0;
 
     if (shareEligible) {
       const picked = pickShareFaction(ns, shareState);
@@ -222,11 +224,11 @@ export async function main(ns) {
       if (canShare) {
         const launchedShare = launchShareWindow(ns, runnerHosts, {
           homeReserveGb: CONFIG.homeReserveGb,
-          durationMs: CONFIG.sharing.windowMs,
+          durationMs: shareDurationMs,
           tag: `share:${now}:${picked.faction}`,
         });
         if (launchedShare.launchedThreads > 0) {
-          shareUntilAt = now + CONFIG.sharing.windowMs;
+          shareUntilAt = now + shareDurationMs;
           mode = "share";
           activeShareSummary = { ...launchedShare, faction: picked.faction, reason: picked.reason };
         }
