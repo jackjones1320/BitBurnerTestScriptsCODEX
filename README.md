@@ -74,6 +74,10 @@ Tune values in `config/defaults.js`:
 
 ## Personal utility scripts
 
+- `run git-pull.js <owner/repo> [branch]`
+  - Pulls every `.js` file from a GitHub repository branch directly into Bitburner.
+  - Example: `run git-pull.js your-name/BitBurnerTestScriptsCODEX main`
+
 - `run scripts/personal-connect-list.js`
   - Prints all currently connectable servers (by your hacking level), their route from `home`, and opens a clickable picker via `ns.prompt`.
   - If you have Singularity access, the selected host is auto-connected.
